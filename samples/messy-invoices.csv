@@ -1,0 +1,9 @@
+Client Name,Cell,E-mail,Invoice #,Details,Amount Due,Paid,Invoice Date,Due Date
+Bob's Plumbing,082 000 0000,test@example.com,INV-001,Geyser replacement,"R1,500.00",,01/08/2026,31/08/2026
+Bob's Plumbing,+27 82 000 0000,,INV-002,Callout fee,"R 450,00",,2026-08-15,
+,,,,,,,,
+Jane Doe,,jane@example.com,INV-003,Garden clean-up,"1 200",200,15 Aug 2026,14/09/2026
+Mystery Co,,,INV-004,No usable amount,abc,,32/13/2026,
+Zero Co,,,INV-005,Free quote,0,,17/09/2026,17/09/2026
+bobs plumbing,0820000000,,INV-001,Same invoice again,1500,,01/08/2026,31/08/2026
+Sipho's Electrical,+27 00 000 0000,sipho@example.com,2026-042,Rewire,"ZAR 12 345,67",5000,17-Sep-26,17 Oct 2026

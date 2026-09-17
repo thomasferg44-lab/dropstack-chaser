@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.vite/
+
+# env — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# editor / os
+.DS_Store
+.vscode/
+*.log
+npm-debug.log*
+
+# netlify
+.netlify/
