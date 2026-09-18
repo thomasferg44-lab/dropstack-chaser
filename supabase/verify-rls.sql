@@ -1,8 +1,10 @@
 -- DropStack Invoice Chaser — RLS verification
 -- Run in the Supabase SQL editor AFTER schema.sql. Every row must say PASS.
 --
--- It switches role to `anon` and `authenticated` with `set local role` and
--- attempts every operation on every chaser_ table. It checks `current_user`,
+-- It switches role to `anon` and `authenticated` with `set role` and
+-- attempts every operation on every chaser_ table. While switched, results
+-- are buffered in a plpgsql variable (anon can't write to the temp table)
+-- and inserted after `reset role`. It checks `current_user`,
 -- NOT auth.role(): auth.role() reads the JWT claim and is null in the SQL
 -- editor, so a guard written against it would silently no-op here and you'd
 -- learn nothing. current_user is the real Postgres role RLS is enforced on.
@@ -31,6 +33,7 @@ declare
   cust_id   uuid;
   inv_id    uuid;
   n         int;
+  buf       jsonb := '[]'::jsonb;   -- results collected while switched to a restricted role
 begin
   -- Seed one row of each as the superuser so anon has something to try to read.
   insert into chaser_customers (name, phone, email)
@@ -48,10 +51,10 @@ begin
     execute format('set role %I', r);
 
     -- Sanity: the role switch actually happened. This is the current_user check.
-    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
-    values (r, '-', 'current_user = ' || r, 'true',
-            current_user::text,
-            case when current_user::text = r then 'PASS' else 'FAIL' end);
+    buf := buf || jsonb_build_object(
+      'role', r, 'tbl', '-', 'op', 'current_user = ' || r, 'expect', 'true',
+      'outcome', current_user::text,
+      'result', case when current_user::text = r then 'PASS' else 'FAIL' end);
 
     foreach t in array array['chaser_customers', 'chaser_invoices', 'chaser_nudges'] loop
       foreach op in array array['select', 'insert', 'update', 'delete'] loop
@@ -97,16 +100,22 @@ begin
           detail := 'error: ' || sqlerrm;
         end;
 
-        insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
-        values (r, t, op,
-                case when expect_ok then 'allowed' else 'denied' end,
-                detail,
-                case when ok = expect_ok then 'PASS' else 'FAIL' end);
+        buf := buf || jsonb_build_object(
+          'role', r, 'tbl', t, 'op', op,
+          'expect', case when expect_ok then 'allowed' else 'denied' end,
+          'outcome', detail,
+          'result', case when ok = expect_ok then 'PASS' else 'FAIL' end);
       end loop;
     end loop;
 
     reset role;
   end loop;
+
+  -- Back as the editor's own role: flush the buffered results, in order.
+  insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+  select x->>'role', x->>'tbl', x->>'op', x->>'expect', x->>'outcome', x->>'result'
+  from jsonb_array_elements(buf) with ordinality as e(x, i)
+  order by i;
 
   -- Cleanup (as the editor's own role). Cascades remove invoices + nudges.
   delete from chaser_customers where name in ('RLS Test Customer', 'rls-probe');
