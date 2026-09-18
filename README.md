@@ -58,7 +58,9 @@ Every row in the file ends up in the preview. Blank rows are counted and reporte
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) and Stage 2 (dashboard: outstanding headline, aging buckets, sorted list) built.**
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list) and Stage 3 (filters + search) built.**
+
+The list defaults to open invoices (unpaid + partial). Status, customer and aging-bucket filters combine with a search over customer name, reference and description. Paid and written-off invoices are hidden by default but the count of hidden matches is shown with a one-tap link to include them.
 
 Aging buckets are relative to `due_on` and today: due today or later is Current; 1–30, 31–60 and 60+ days overdue are the other three. Only unpaid and partial invoices count toward the headline; paid and written-off ones are excluded. See `CLAUDE.md` for the full spec, build order and definition of done. See `PROMPT.md` for the Claude Code starting prompt.
 

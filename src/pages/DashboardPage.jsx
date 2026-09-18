@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer } from "../lib/db.js";
 import { formatCents } from "../lib/money.js";
 import { formatDate, todayISO, daysBetween } from "../lib/dates.js";
-import { BUCKETS, summarise, enrich, isOpen, sortMostOverdue } from "../lib/aging.js";
+import { BUCKETS, summarise, enrich, sortMostOverdue } from "../lib/aging.js";
+import { STATUS_FILTERS, DEFAULT_FILTERS, filterInvoices, countHiddenByStatus } from "../lib/filters.js";
 import { companyConfig } from "../../companyConfig.js";
 import InvoiceForm from "../components/InvoiceForm.jsx";
 import Modal from "../components/Modal.jsx";
@@ -28,7 +29,11 @@ const RING = {
 export default function DashboardPage({ onNavigate }) {
   const [invoices, setInvoices] = useState(null);
   const [customers, setCustomers] = useState([]);
-  const [bucket, setBucket] = useState(null); // tapped bucket filter
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const bucket = filters.bucket;
+  const setBucket = (b) => setFilters((f) => ({ ...f, bucket: b }));
+  const setFilter = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
+  const filtersActive = filters.status !== "open" || filters.customerId || filters.query.trim();
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState(null);
   const today = todayISO();
@@ -46,10 +51,9 @@ export default function DashboardPage({ onNavigate }) {
   useEffect(() => { load(); }, []);
 
   const summary = useMemo(() => summarise(invoices || [], today), [invoices, today]);
-  const rows = useMemo(() => {
-    const open = enrich((invoices || []).filter(isOpen), today);
-    return sortMostOverdue(bucket ? open.filter((i) => i.bucket === bucket) : open);
-  }, [invoices, bucket, today]);
+  const enriched = useMemo(() => enrich(invoices || [], today), [invoices, today]);
+  const rows = useMemo(() => sortMostOverdue(filterInvoices(enriched, filters)), [enriched, filters]);
+  const hidden = useMemo(() => countHiddenByStatus(enriched, filters), [enriched, filters]);
 
   async function handleSave(inv) {
     await saveInvoice(inv);
@@ -122,9 +126,32 @@ export default function DashboardPage({ onNavigate }) {
         })}
       </section>
 
+      {/* Filters + search */}
+      <section className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="search"
+          placeholder="Search customer or reference"
+          value={filters.query}
+          onChange={(e) => setFilter("query", e.target.value)}
+          className="sm:flex-1"
+          aria-label="Search"
+        />
+        <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className="sm:w-40" aria-label="Status">
+          {STATUS_FILTERS.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
+        <select value={filters.customerId} onChange={(e) => setFilter("customerId", e.target.value)} className="sm:w-48" aria-label="Customer">
+          <option value="">All customers</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </section>
+
       {/* List */}
       <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <div className="text-mute">
             {bucket ? (
               <>
@@ -134,13 +161,29 @@ export default function DashboardPage({ onNavigate }) {
             ) : (
               "Most overdue first"
             )}
+            {(filtersActive || bucket) && (
+              <>
+                {" · "}
+                <button className="underline text-dim" onClick={() => setFilters(DEFAULT_FILTERS)}>reset filters</button>
+              </>
+            )}
           </div>
-          <div className="text-xs text-dim">{rows.length} shown</div>
+          <div className="text-xs text-dim">
+            {rows.length} shown
+            {hidden > 0 && filters.status === "open" && (
+              <>
+                {" · "}
+                <button className="underline" onClick={() => setFilter("status", "all")}>
+                  {hidden} paid / written-off hidden
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {invoices && rows.length === 0 && (
           <div className="card text-center py-10 text-mute">
-            {invoices.length === 0 ? "No invoices yet. Import a CSV or add one." : "Nothing in this view."}
+            {invoices.length === 0 ? "No invoices yet. Import a CSV or add one." : "Nothing matches these filters."}
           </div>
         )}
 
