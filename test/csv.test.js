@@ -103,6 +103,11 @@ test("existing customers are matched by phone, email, then name; existing refs f
   assert.equal(p.rows[1].alreadyExists, false);
   assert.equal(p.rows[2].customer.existing.id, "c2");
   assert.equal(p.rows[4].customer.existing.id, "c3");
+  assert.equal(p.rows[4].customer.matchedBy, "name");
+  assert.ok(p.rows[4].warnings.some((w) => w.startsWith("Matched existing customer")));
+  assert.equal(p.rows[0].customer.matchedBy, "phone");
+  assert.ok(!p.rows[0].warnings.some((w) => w.startsWith("Matched")));
+  assert.equal(p.rows[2].customer.matchedBy, "email");
   const payload = buildImportPayload(p.rows.map((r) => ({ ...r, include: !r.alreadyExists })));
   assert.equal(payload.customers.filter((c) => c.id === null).length, 0);
 });

@@ -33,7 +33,7 @@ export async function deleteCustomer(id) {
 
 // ---- invoices --------------------------------------------------------------
 
-const INVOICE_SELECT = "*, customer:chaser_customers(id, name, phone, email)";
+const INVOICE_SELECT = "*, customer:chaser_customers(id, name, phone, email), nudges:chaser_nudges(sent_at)";
 
 export async function listInvoices() {
   return unwrap(

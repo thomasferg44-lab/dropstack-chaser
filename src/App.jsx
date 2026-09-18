@@ -2,21 +2,21 @@ import { useEffect, useState } from "react";
 import { supabase, supabaseConfigured } from "./lib/supabase.js";
 import AuthGate from "./components/AuthGate.jsx";
 import Shell from "./components/Shell.jsx";
-import InvoicesPage from "./pages/InvoicesPage.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
 import CustomersPage from "./pages/CustomersPage.jsx";
 import ImportPage from "./pages/ImportPage.jsx";
 
 // Views are a plain state switch for now. A router isn't needed until the
 // hosted dashboard at "/" (Stage 4) and it stays one page anyway.
 const VIEWS = {
-  invoices: InvoicesPage,
+  dashboard: DashboardPage,
   customers: CustomersPage,
   import: ImportPage,
 };
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading
-  const [view, setView] = useState("invoices");
+  const [view, setView] = useState("dashboard");
 
   useEffect(() => {
     if (!supabaseConfigured) return;

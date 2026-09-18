@@ -147,7 +147,7 @@ export default function ImportPage({ onNavigate }) {
             {result.invoices_created} invoice{result.invoices_created === 1 ? "" : "s"} added,{" "}
             {result.customers_created} new customer{result.customers_created === 1 ? "" : "s"} created.
           </div>
-          <button className="btn-secondary mt-3" onClick={() => onNavigate("invoices")}>View invoices</button>
+          <button className="btn-secondary mt-3" onClick={() => onNavigate("dashboard")}>View invoices</button>
         </div>
       )}
 
@@ -282,7 +282,10 @@ function RowEditor({ row, hasErr, onEdit, onToggle }) {
         ))}
         <td className="p-2 whitespace-nowrap">
           {row.customer.existing ? (
-            <span className="text-status-paid">{row.customer.existing.name}</span>
+            <span className={row.customer.matchedBy === "name" ? "text-status-due" : "text-status-paid"}>
+              {row.customer.existing.name}
+              <span className="text-dim"> · by {row.customer.matchedBy}</span>
+            </span>
           ) : (
             <span className="text-mute">new</span>
           )}

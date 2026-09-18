@@ -308,14 +308,18 @@ export function indexCustomers(customers) {
   return idx;
 }
 
-/** Try phone, then email, then name against the index. */
+/**
+ * Try phone, then email, then name against the index.
+ * Returns { customer, matchedBy: 'phone'|'email'|'name' } or null.
+ * A name-only match is a guess — the preview warns so the owner confirms it.
+ */
 export function findExistingCustomer(values, idx) {
   const p = normalisePhone(values.phone);
-  if (p && idx.has(`phone:${p}`)) return idx.get(`phone:${p}`);
+  if (p && idx.has(`phone:${p}`)) return { customer: idx.get(`phone:${p}`), matchedBy: "phone" };
   const e = normaliseEmail(values.email);
-  if (e && idx.has(`email:${e}`)) return idx.get(`email:${e}`);
+  if (e && idx.has(`email:${e}`)) return { customer: idx.get(`email:${e}`), matchedBy: "email" };
   const n = normaliseName(values.customer_name).toLowerCase();
-  if (n && idx.has(`name:${n}`)) return idx.get(`name:${n}`);
+  if (n && idx.has(`name:${n}`)) return { customer: idx.get(`name:${n}`), matchedBy: "name" };
   return null;
 }
 
@@ -327,7 +331,7 @@ export function findExistingCustomer(values, idx) {
  * Parse + normalise + match. Returns:
  * {
  *   headers, mapping, delimiter,
- *   rows: [{ id, line, include, values, parsed, errors, warnings, customer: {existing|null, key} }],
+ *   rows: [{ id, line, include, values, parsed, errors, warnings, customer: {existing|null, matchedBy, key} }],
  *   blankRows: number
  * }
  * `existingCustomers` and `existingInvoices` come from the DB (may be empty).
@@ -364,9 +368,17 @@ export function annotateRows(rows, { custIdx, existingInvoices = [] }) {
   const seenRefs = new Map();
 
   for (const row of rows) {
-    row.warnings = row.warnings.filter((w) => !w.startsWith("Duplicate") && !w.startsWith("Already"));
-    row.customer = { key: customerKey(row.values), existing: findExistingCustomer(row.values, custIdx) };
+    row.warnings = row.warnings.filter(
+      (w) => !w.startsWith("Duplicate") && !w.startsWith("Already") && !w.startsWith("Matched"),
+    );
+    const match = findExistingCustomer(row.values, custIdx);
+    row.customer = { key: customerKey(row.values), existing: match?.customer || null, matchedBy: match?.matchedBy || null };
     row.alreadyExists = false;
+    if (match?.matchedBy === "name") {
+      row.warnings.push(
+        `Matched existing customer "${match.customer.name}" by name only — confirm it's the same person, or add a phone/email to create a new one`,
+      );
+    }
 
     const ref = (row.values.reference || "").trim().toLowerCase();
     if (ref) {

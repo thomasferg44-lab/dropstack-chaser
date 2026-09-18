@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase.js";
 import { companyConfig } from "../../companyConfig.js";
 
 const NAV = [
-  { key: "invoices", label: "Invoices" },
+  { key: "dashboard", label: "Dashboard" },
   { key: "customers", label: "Customers" },
   { key: "import", label: "Import CSV" },
 ];

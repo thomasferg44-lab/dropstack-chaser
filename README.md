@@ -47,7 +47,7 @@ Every row in the file ends up in the preview. Blank rows are counted and reporte
 
 - **Columns** are matched by name, loosely (`Amount`, `Total`, `Amount Due`, `value` → amount). Any header can be re-mapped in the preview.
 - **Dates**: `DD/MM/YYYY` (South African default), ISO, `17 Sep 2026`, `17-Sep-26`, Excel serial numbers. `x/y/z` where `x ≤ 12 < y` is read as US month-first. Missing due date → issued + 30 days (warned). Missing issued date → the due date (warned).
-- **Customers** are matched to existing ones by phone, then email, then exact name. Rows with the same customer + reference as an existing invoice are flagged and unticked by default.
+- **Customers** are matched to existing ones by phone, then email, then exact name. A name-only match is shown as a warning so you confirm it rather than merging silently. Rows with the same customer + reference as an existing invoice are flagged and unticked by default.
 - **Delimiters**: comma, semicolon (Excel in some locales), tab and pipe are auto-detected.
 
 `samples/messy-invoices.csv` is a deliberately awkward file for testing. Hand-checked outstanding after importing the six clean rows: 1500 + 450 + 1000 + 0 + 1500 + 7345.67 = **R 11 795,67**.
@@ -58,7 +58,9 @@ Every row in the file ends up in the preview. Blank rows are counted and reporte
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) built.** See `CLAUDE.md` for the full spec, build order and definition of done. See `PROMPT.md` for the Claude Code starting prompt.
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) and Stage 2 (dashboard: outstanding headline, aging buckets, sorted list) built.**
+
+Aging buckets are relative to `due_on` and today: due today or later is Current; 1–30, 31–60 and 60+ days overdue are the other three. Only unpaid and partial invoices count toward the headline; paid and written-off ones are excluded. See `CLAUDE.md` for the full spec, build order and definition of done. See `PROMPT.md` for the Claude Code starting prompt.
 
 ## Scope discipline
 
