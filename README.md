@@ -54,7 +54,7 @@ Every row in the file ends up in the preview. Blank rows are counted and reporte
 
 ## RLS
 
-`supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. Run it after `schema.sql`; every row must read PASS.
+`supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
 
 ## Build status
 

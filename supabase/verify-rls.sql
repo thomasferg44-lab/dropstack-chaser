@@ -112,6 +112,112 @@ begin
   delete from chaser_customers where name in ('RLS Test Customer', 'rls-probe');
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Catalog checks. These don't depend on seed data or role switching: they
+-- read pg_catalog directly so a newly added table or function that slipped
+-- past the grants in schema.sql shows up as a FAIL here.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  -- Functions anon / PUBLIC are ALLOWED to execute. Empty in v1: there is no
+  -- anonymous surface. Add a signature here only when a deliberately public
+  -- function is introduced, e.g. 'chaser_public_thing(uuid)'.
+  anon_allow  text[] := array[]::text[];
+  -- Functions authenticated MUST be able to execute (the app calls these).
+  auth_must   text[] := array['chaser_import_invoices(jsonb)'];
+
+  f           record;
+  t           record;
+  sig         text;
+  anon_exec   boolean;
+  public_exec boolean;
+  auth_exec   boolean;
+  allowed     boolean;
+  n_funcs     int := 0;
+begin
+  -- Every chaser_% table must have RLS enabled and anon must hold no privilege.
+  for t in
+    select c.oid, c.relname, c.relrowsecurity
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relname like 'chaser\_%'
+    order by c.relname
+  loop
+    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+    values ('catalog', t.relname, 'rls enabled', 'true', t.relrowsecurity::text,
+            case when t.relrowsecurity then 'PASS' else 'FAIL' end);
+
+    anon_exec := has_table_privilege('anon', t.oid, 'SELECT, INSERT, UPDATE, DELETE');
+    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+    values ('catalog', t.relname, 'anon table privileges', 'none',
+            case when anon_exec then 'anon holds a privilege' else 'none' end,
+            case when anon_exec then 'FAIL' else 'PASS' end);
+  end loop;
+
+  -- Every chaser_% function: anon and PUBLIC must not hold EXECUTE unless
+  -- allow-listed. Listed by full signature so overloads can't hide.
+  for f in
+    select p.oid, p.oid::regprocedure::text as sig, p.proacl, p.proowner
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname like 'chaser\_%'
+    order by 2
+  loop
+    n_funcs := n_funcs + 1;
+    sig := regexp_replace(f.sig, '^public\.', '');
+    allowed := sig = any (anon_allow);
+
+    -- PUBLIC (grantee oid 0) — an explicit grant to PUBLIC, or the default
+    -- ACL when proacl is null (Postgres grants EXECUTE to PUBLIC by default).
+    select exists (
+      select 1 from aclexplode(coalesce(f.proacl, acldefault('f', f.proowner))) a
+      where a.grantee = 0 and a.privilege_type = 'EXECUTE'
+    ) into public_exec;
+
+    -- anon — direct grant or via PUBLIC (has_function_privilege covers both).
+    anon_exec := has_function_privilege('anon', f.oid, 'EXECUTE');
+    auth_exec := has_function_privilege('authenticated', f.oid, 'EXECUTE');
+
+    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+    values ('catalog', sig, 'PUBLIC execute',
+            case when allowed then 'allowed' else 'denied' end,
+            case when public_exec then 'PUBLIC can execute' else 'denied' end,
+            case when public_exec = allowed then 'PASS' else 'FAIL' end);
+
+    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+    values ('catalog', sig, 'anon execute',
+            case when allowed then 'allowed' else 'denied' end,
+            case when anon_exec then 'anon can execute' else 'denied' end,
+            case when anon_exec = allowed then 'PASS' else 'FAIL' end);
+
+    -- authenticated: must be able to call the app's RPCs, and nothing else
+    -- (the trigger function is fired by the trigger, never called directly).
+    insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+    values ('catalog', sig, 'authenticated execute',
+            case when sig = any (auth_must) then 'allowed' else 'denied' end,
+            case when auth_exec then 'authenticated can execute' else 'denied' end,
+            case when auth_exec = (sig = any (auth_must)) then 'PASS' else 'FAIL' end);
+  end loop;
+
+  -- Guard against the loop silently checking nothing (e.g. wrong schema).
+  insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+  values ('catalog', '-', 'chaser_% functions found', '>= ' || array_length(auth_must, 1),
+          n_funcs::text,
+          case when n_funcs >= array_length(auth_must, 1) then 'PASS' else 'FAIL' end);
+
+  -- Every function authenticated must be able to call actually exists.
+  foreach sig in array auth_must loop
+    if not exists (
+      select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and regexp_replace(p.oid::regprocedure::text, '^public\.', '') = sig
+    ) then
+      insert into chaser_rls_results (role_, tbl, op, expect, outcome, result)
+      values ('catalog', sig, 'exists', 'true', 'missing', 'FAIL');
+    end if;
+  end loop;
+end $$;
+
 select
   result,
   role_   as role,

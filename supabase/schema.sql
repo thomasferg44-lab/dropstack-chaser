@@ -188,5 +188,16 @@ begin
 end;
 $$;
 
-revoke all on function chaser_import_invoices(jsonb) from public, anon;
-grant execute on function chaser_import_invoices(jsonb) to authenticated;
+-- ---------------------------------------------------------------------------
+-- Function privileges.
+-- Supabase's default privileges grant EXECUTE on every new function in
+-- `public` to anon AND authenticated directly (not just via PUBLIC), so
+-- revoking from PUBLIC alone leaves those grants in place. Revoke from all
+-- three explicitly, then grant back only what the app needs.
+-- verify-rls.sql enumerates every chaser_% function and fails if anon or
+-- PUBLIC can execute anything outside its allow-list.
+-- ---------------------------------------------------------------------------
+
+revoke all on function public.chaser_derive_invoice_status() from public, anon, authenticated;
+revoke all on function public.chaser_import_invoices(jsonb)  from public, anon, authenticated;
+grant execute on function public.chaser_import_invoices(jsonb) to authenticated;
