@@ -33,6 +33,7 @@ declare
   cust_id   uuid;
   inv_id    uuid;
   n         int;
+  step      int;
   buf       jsonb := '[]'::jsonb;   -- results collected while switched to a restricted role
 begin
   -- Seed one row of each as the superuser so anon has something to try to read.
@@ -56,56 +57,66 @@ begin
       'outcome', current_user::text,
       'result', case when current_user::text = r then 'PASS' else 'FAIL' end);
 
-    foreach t in array array['chaser_customers', 'chaser_invoices', 'chaser_nudges'] loop
-      foreach op in array array['select', 'insert', 'update', 'delete'] loop
-        ok := null; detail := null;
-        begin
-          if op = 'select' then
-            execute format('select count(*) from %I', t) into n;
-            -- anon should get 0 rows (RLS filter) or an error (revoked privilege). Either is a pass.
-            ok := (n > 0);
-            detail := n || ' rows';
-          elsif op = 'insert' then
-            if t = 'chaser_customers' then
-              execute 'insert into chaser_customers (name) values (''rls-probe'')';
-            elsif t = 'chaser_invoices' then
-              execute format('insert into chaser_invoices (customer_id, amount_cents, issued_on, due_on) values (%L, 1, current_date, current_date)', cust_id);
-            else
-              execute format('insert into chaser_nudges (invoice_id, channel, tone) values (%L, ''email'', ''firm'')', inv_id);
-            end if;
-            ok := true; detail := 'inserted';
-          elsif op = 'update' then
-            if t = 'chaser_customers' then
-              execute format('update chaser_customers set name = name where id = %L', cust_id);
-            elsif t = 'chaser_invoices' then
-              execute format('update chaser_invoices set notes = ''probe'' where id = %L', inv_id);
-            else
-              execute format('update chaser_nudges set tone = tone where invoice_id = %L', inv_id);
-            end if;
-            get diagnostics n = row_count;
-            ok := (n > 0); detail := n || ' rows affected';
-          else -- delete
-            if t = 'chaser_nudges' then
-              execute format('delete from chaser_nudges where invoice_id = %L', inv_id);
-            elsif t = 'chaser_invoices' then
-              execute format('delete from chaser_invoices where id = %L', inv_id);
-            else
-              execute format('delete from chaser_customers where id = %L', cust_id);
-            end if;
-            get diagnostics n = row_count;
-            ok := (n > 0); detail := n || ' rows affected';
-          end if;
-        exception when others then
-          ok := false;
-          detail := 'error: ' || sqlerrm;
-        end;
+    -- select / insert / update on every table first, then deletes child-first.
+    -- Deleting the customer earlier would cascade away the seeded invoice and
+    -- nudge and make every later check on those tables fail for the wrong reason.
+    for step in 1..15 loop
+      if step <= 12 then
+        t  := (array['chaser_customers', 'chaser_invoices', 'chaser_nudges'])[((step - 1) / 4) + 1];
+        op := (array['select', 'insert', 'update', 'delete'])[((step - 1) % 4) + 1];
+        continue when op = 'delete';
+      else
+        t  := (array['chaser_nudges', 'chaser_invoices', 'chaser_customers'])[step - 12];
+        op := 'delete';
+      end if;
 
-        buf := buf || jsonb_build_object(
-          'role', r, 'tbl', t, 'op', op,
-          'expect', case when expect_ok then 'allowed' else 'denied' end,
-          'outcome', detail,
-          'result', case when ok = expect_ok then 'PASS' else 'FAIL' end);
-      end loop;
+      ok := null; detail := null;
+      begin
+        if op = 'select' then
+          execute format('select count(*) from %I', t) into n;
+          -- anon should get 0 rows (RLS filter) or an error (revoked privilege). Either is a pass.
+          ok := (n > 0);
+          detail := n || ' rows';
+        elsif op = 'insert' then
+          if t = 'chaser_customers' then
+            execute 'insert into chaser_customers (name) values (''rls-probe'')';
+          elsif t = 'chaser_invoices' then
+            execute format('insert into chaser_invoices (customer_id, amount_cents, issued_on, due_on) values (%L, 1, current_date, current_date)', cust_id);
+          else
+            execute format('insert into chaser_nudges (invoice_id, channel, tone) values (%L, ''email'', ''firm'')', inv_id);
+          end if;
+          ok := true; detail := 'inserted';
+        elsif op = 'update' then
+          if t = 'chaser_customers' then
+            execute format('update chaser_customers set name = name where id = %L', cust_id);
+          elsif t = 'chaser_invoices' then
+            execute format('update chaser_invoices set notes = ''probe'' where id = %L', inv_id);
+          else
+            execute format('update chaser_nudges set tone = tone where invoice_id = %L', inv_id);
+          end if;
+          get diagnostics n = row_count;
+          ok := (n > 0); detail := n || ' rows affected';
+        else -- delete, child-first: nudges → invoices → customers
+          if t = 'chaser_nudges' then
+            execute format('delete from chaser_nudges where invoice_id = %L', inv_id);
+          elsif t = 'chaser_invoices' then
+            execute format('delete from chaser_invoices where id = %L', inv_id);
+          else
+            execute format('delete from chaser_customers where id = %L', cust_id);
+          end if;
+          get diagnostics n = row_count;
+          ok := (n > 0); detail := n || ' rows affected';
+        end if;
+      exception when others then
+        ok := false;
+        detail := 'error: ' || sqlerrm;
+      end;
+
+      buf := buf || jsonb_build_object(
+        'role', r, 'tbl', t, 'op', op,
+        'expect', case when expect_ok then 'allowed' else 'denied' end,
+        'outcome', detail,
+        'result', case when ok = expect_ok then 'PASS' else 'FAIL' end);
     end loop;
 
     reset role;
