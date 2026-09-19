@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TONES, CHANNELS, renderNudge } from "../lib/nudge.js";
 import { waLink } from "../lib/phone.js";
+import { sendNudgeEmail } from "../lib/email.js";
 import { formatCents, outstandingCents } from "../lib/money.js";
 import { formatDate, todayISO, daysOverdue } from "../lib/dates.js";
 import { companyConfig } from "../../companyConfig.js";
@@ -17,9 +18,11 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
   const [tone, setTone] = useState("gentle");
   const [channel, setChannel] = useState(invoice.customer?.phone ? "whatsapp" : "email");
   const [text, setText] = useState("");
+  const [subject, setSubject] = useState("");
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
   const today = todayISO();
   const { locale } = companyConfig;
@@ -37,8 +40,11 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
   useEffect(() => {
     if (nudge) {
       setText(nudge.body);
+      setSubject(nudge.subject || "");
       setEdited(false);
       setCopied(false);
+      setNotice(null);
+      setError(null);
     }
   }, [nudge]);
 
@@ -48,10 +54,25 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
   async function send() {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       if (channel === "whatsapp") {
         // Rebuilt from the (possibly edited) text the owner just read.
         window.open(waLink(invoice.customer?.phone, body), "_blank", "noopener");
+      } else {
+        const result = await sendNudgeEmail({
+          to: nudge.to,
+          subject,
+          body,
+          tone,
+          invoiceId: invoice.id,
+        });
+        // Blocked means nothing was sent, so nothing is recorded either.
+        if (!result.sent) {
+          setNotice(result.reason || "Nothing was sent.");
+          setBusy(false);
+          return;
+        }
       }
       await onSent({ invoiceId: invoice.id, channel, tone });
       onClose();
@@ -62,7 +83,7 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
   }
 
   async function copy() {
-    const payload = channel === "email" ? `Subject: ${nudge.subject}\n\n${body}` : body;
+    const payload = channel === "email" ? `Subject: ${subject}\n\n${body}` : body;
     try {
       await navigator.clipboard.writeText(payload);
       setCopied(true);
@@ -125,9 +146,15 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
           <div className="field">
             <label>Preview {edited && <span className="text-dim">· edited</span>}</label>
             {channel === "email" && (
-              <div className="text-xs text-mute mb-1">
-                To: {nudge.to || "—"} · Subject: <span className="text-text">{nudge.subject}</span>
-              </div>
+              <>
+                <div className="text-xs text-mute mb-1">To: {nudge.to || "—"}</div>
+                <input
+                  value={subject}
+                  onChange={(e) => { setSubject(e.target.value); setEdited(true); }}
+                  aria-label="Subject"
+                  className="mb-2"
+                />
+              </>
             )}
             <textarea
               rows={channel === "email" ? 10 : 6}
@@ -145,10 +172,15 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
           <p className="text-status-due text-sm">{nudge.blockedReason}</p>
         )}
         {(error || renderError) && <p className="text-status-critical text-sm">{error || renderError}</p>}
+        {notice && (
+          <p className="text-status-due text-sm">
+            {notice} Nothing was recorded against this invoice.
+          </p>
+        )}
 
         {channel === "email" && (
           <p className="text-xs text-dim">
-            Email sending is wired up in the next stage. For now, copy the message and send it from your own email.
+            Sent from {companyConfig.fromEmail} via Resend. Replies go to {companyConfig.replyToEmail || "your reply-to address"}.
           </p>
         )}
 
@@ -156,15 +188,11 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
           <button type="button" className="btn-secondary" onClick={copy}>
             {copied ? "Copied" : "Copy text"}
           </button>
-          {channel === "whatsapp" ? (
-            <button type="button" className="btn-primary" disabled={!nudge?.canSend || busy} onClick={send}>
-              {busy ? "Opening…" : "Open WhatsApp"}
-            </button>
-          ) : (
-            <button type="button" className="btn-primary" disabled title="Arrives in the next stage">
-              Send email
-            </button>
-          )}
+          <button type="button" className="btn-primary" disabled={!nudge?.canSend || busy} onClick={send}>
+            {channel === "whatsapp"
+              ? busy ? "Opening…" : "Open WhatsApp"
+              : busy ? "Sending…" : "Send email"}
+          </button>
         </div>
       </div>
     </Modal>

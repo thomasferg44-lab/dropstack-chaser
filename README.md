@@ -19,7 +19,7 @@ Secrets live in `.env` (copy from `.env.example`). Never commit it.
 5. Create your owner login: Supabase dashboard → Authentication → Users → Add user
 6. `cp .env.example .env` and fill in the values
 7. Set `currency` in `companyConfig.js` (ZAR, USD, etc)
-8. `npm run dev`
+8. `npm run dev` for the app alone, or `npx netlify dev` to run the app together with the email function
 
 ## White-labelling for a client
 
@@ -66,13 +66,27 @@ A placeholder that resolves to nothing, such as a blank `paymentDetails`, leaves
 
 Every send records a `chaser_nudges` row. The message text itself is never stored.
 
+### Email delivery
+
+Email goes through `netlify/functions/send-nudge.mjs`, which calls the Resend REST API directly. No SDK, so no extra dependency. The API key is read from the server environment and is deliberately not `VITE_` prefixed, so it cannot reach the browser.
+
+Three things guard that endpoint:
+
+- **Nothing sends unless `DEV_BLOCK_REAL_SENDS` is exactly `"false"`.** Any other value, including the variable being absent, logs the message and returns `sent: false`. The app then says plainly that nothing was sent and records no nudge. Set it to `"false"` in the Netlify dashboard only, never in a committed file.
+- **The caller must hold a valid owner session.** The function verifies the bearer token against Supabase before doing anything. An open endpoint that sends mail from the client's domain is a spam relay.
+- **The payload is re-validated server-side**: one recipient, length caps, known tone, and no line breaks in the subject.
+
+Set `fromEmail`, `fromName` and `replyToEmail` in `companyConfig.js`. The domain in `fromEmail` must be verified in Resend or every send is rejected with an unverified-domain error.
+
+Functions do not run under `npm run dev`. Use `npx netlify dev`, or the app will report that the send function was not found.
+
 ## RLS
 
 `supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search) and Stage 4 (nudge sheet, WhatsApp channel) built.**
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search), Stage 4 (nudge sheet, WhatsApp channel) and Stage 5 (email channel via Resend) built.**
 
 The list defaults to open invoices (unpaid + partial). Status, customer and aging-bucket filters combine with a search over customer name, reference and description. Paid and written-off invoices are hidden by default but the count of hidden matches is shown with a one-tap link to include them.
 

@@ -10,6 +10,13 @@ export const companyConfig = {
   // Bank details shown in nudge messages (leave blank to omit the line).
   paymentDetails: "",
 
+  // Email sending (Netlify Function → Resend).
+  // fromEmail's DOMAIN must be verified in Resend or every send is rejected.
+  // Not a secret: the API key lives in .env, never here.
+  fromEmail: "accounts@example.co.za",
+  fromName: "Example Services",
+  replyToEmail: "owner@example.co.za", // where customer replies should land
+
   // Nudge templates. Placeholders: {customerName} {businessName} {amount}
   // {reference} {daysOverdue} {dueDate} {paymentDetails} {invoiceTotal} {amountPaid}
   //
