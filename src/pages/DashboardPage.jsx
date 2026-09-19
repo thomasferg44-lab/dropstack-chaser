@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer } from "../lib/db.js";
+import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer, recordNudge } from "../lib/db.js";
 import { formatCents } from "../lib/money.js";
 import { formatDate, todayISO, daysBetween } from "../lib/dates.js";
 import { BUCKETS, summarise, enrich, sortMostOverdue } from "../lib/aging.js";
 import { STATUS_FILTERS, DEFAULT_FILTERS, filterInvoices, countHiddenByStatus } from "../lib/filters.js";
 import { companyConfig } from "../../companyConfig.js";
 import InvoiceForm from "../components/InvoiceForm.jsx";
+import NudgeSheet from "../components/NudgeSheet.jsx";
 import Modal from "../components/Modal.jsx";
 import StatusPill from "../components/StatusPill.jsx";
 
@@ -35,6 +36,7 @@ export default function DashboardPage({ onNavigate }) {
   const setFilter = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
   const filtersActive = filters.status !== "open" || filters.customerId || filters.query.trim();
   const [editing, setEditing] = useState(null);
+  const [nudging, setNudging] = useState(null);
   const [error, setError] = useState(null);
   const today = todayISO();
   const { currency, locale } = companyConfig;
@@ -63,6 +65,10 @@ export default function DashboardPage({ onNavigate }) {
   async function handleDelete(inv) {
     if (!window.confirm(`Delete invoice ${inv.reference || ""} for ${inv.customer?.name}?`)) return;
     await deleteInvoice(inv.id);
+    await load();
+  }
+  async function handleNudgeSent({ invoiceId, channel, tone }) {
+    await recordNudge({ invoiceId, channel, tone });
     await load();
   }
   async function handleCreateCustomer(c) {
@@ -189,10 +195,22 @@ export default function DashboardPage({ onNavigate }) {
 
         <div className="flex flex-col gap-2">
           {rows.map((inv) => (
-            <InvoiceRow key={inv.id} inv={inv} today={today} locale={locale} onEdit={() => setEditing(inv)} onDelete={() => handleDelete(inv)} />
+            <InvoiceRow
+              key={inv.id}
+              inv={inv}
+              today={today}
+              locale={locale}
+              onEdit={() => setEditing(inv)}
+              onDelete={() => handleDelete(inv)}
+              onNudge={() => setNudging(inv)}
+            />
           ))}
         </div>
       </section>
+
+      {nudging && (
+        <NudgeSheet invoice={nudging} onClose={() => setNudging(null)} onSent={handleNudgeSent} />
+      )}
 
       {editing && (
         <Modal title={editing === "new" ? "Add invoice" : "Edit invoice"} onClose={() => setEditing(null)}>
@@ -217,7 +235,7 @@ function nudgeSummary(nudges, today) {
   return `nudged ${nudges.length}× · last ${when}`;
 }
 
-function InvoiceRow({ inv, today, locale, onEdit, onDelete }) {
+function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge }) {
   const overdue = inv.daysOverdue > 0;
   const nudged = nudgeSummary(inv.nudges, today);
   return (
@@ -251,7 +269,7 @@ function InvoiceRow({ inv, today, locale, onEdit, onDelete }) {
         <StatusPill status={inv.status} />
         <button className="btn-ghost px-2 py-1" onClick={onEdit}>Edit</button>
         <button className="btn-ghost px-2 py-1 hover:text-status-critical" onClick={onDelete}>Delete</button>
-        <button className="btn-secondary px-3 py-1" disabled title="Nudging arrives in a later stage">Nudge</button>
+        <button className="btn-secondary px-3 py-1" onClick={onNudge}>Nudge</button>
       </div>
     </div>
   );

@@ -73,6 +73,19 @@ export async function deleteInvoice(id) {
   unwrap(await supabase.from("chaser_invoices").delete().eq("id", id));
 }
 
+// ---- nudges ----------------------------------------------------------------
+
+/** Record that a nudge was sent. The message itself is never stored. */
+export async function recordNudge({ invoiceId, channel, tone }) {
+  return unwrap(
+    await supabase
+      .from("chaser_nudges")
+      .insert({ invoice_id: invoiceId, channel, tone })
+      .select()
+      .single(),
+  );
+}
+
 // ---- import ----------------------------------------------------------------
 
 /** Atomic: all rows or none. See chaser_import_invoices in schema.sql. */

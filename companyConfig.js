@@ -11,32 +11,36 @@ export const companyConfig = {
   paymentDetails: "",
 
   // Nudge templates. Placeholders: {customerName} {businessName} {amount}
-  // {reference} {daysOverdue} {dueDate} {paymentDetails}
-  // Used from Stage 6 onward; shipped now so the config shape is stable.
+  // {reference} {daysOverdue} {dueDate} {paymentDetails} {invoiceTotal} {amountPaid}
+  //
+  // {amount} is the balance STILL OUTSTANDING, not the invoice total — on a
+  // part-paid invoice those differ, so the wording says "balance" throughout.
+  // A placeholder that resolves to nothing (e.g. blank paymentDetails) leaves
+  // no stray blank line. Used from the nudge sheet.
   nudgeTemplates: {
     whatsapp: {
       gentle:
-        "Hi {customerName}, just a friendly reminder from {businessName} that invoice {reference} for {amount} was due on {dueDate}. It may have slipped through — no worries if so! {paymentDetails}",
+        "Hi {customerName}, friendly reminder from {businessName}: invoice {reference} has an outstanding balance of {amount}, which was due on {dueDate}. It may well have slipped through — no stress if so.\n\n{paymentDetails}",
       firm:
-        "Hi {customerName}, invoice {reference} from {businessName} for {amount} is now {daysOverdue} days overdue (due {dueDate}). Could you let me know when we can expect payment? {paymentDetails}",
+        "Hi {customerName}, invoice {reference} from {businessName} is now {daysOverdue} days overdue (due {dueDate}), with {amount} still outstanding. Could you let me know what date we can expect payment?\n\n{paymentDetails}",
       final:
-        "Hi {customerName}, this is a final reminder from {businessName} regarding invoice {reference} for {amount}, now {daysOverdue} days overdue. If payment isn't received within 7 days we'll have to pause further work and refer the account for collection. Please get in touch if there's a problem. {paymentDetails}",
+        "Hi {customerName}, this is a final reminder from {businessName} about invoice {reference}: {amount} remains outstanding and is now {daysOverdue} days overdue.\n\nIf we don't receive payment or hear from you within 7 days, we'll pause any further work and hand the account over for collection. If something is wrong with the invoice, please tell me and we'll sort it out.\n\n{paymentDetails}",
     },
     email: {
       gentle: {
         subject: "Friendly reminder: invoice {reference} from {businessName}",
         body:
-          "Hi {customerName},\n\nJust a friendly reminder that invoice {reference} for {amount} was due on {dueDate}. It may have slipped through — no problem if so.\n\n{paymentDetails}\n\nThanks,\n{businessName}",
+          "Hi {customerName},\n\nJust a friendly reminder that invoice {reference} has an outstanding balance of {amount}, which was due on {dueDate}. It may well have slipped through — no problem if so.\n\n{paymentDetails}\n\nThanks,\n{businessName}",
       },
       firm: {
         subject: "Overdue: invoice {reference} ({daysOverdue} days)",
         body:
-          "Hi {customerName},\n\nInvoice {reference} for {amount} is now {daysOverdue} days overdue (it was due on {dueDate}).\n\nCould you please confirm a date by which payment will be made?\n\n{paymentDetails}\n\nRegards,\n{businessName}",
+          "Hi {customerName},\n\nInvoice {reference} is now {daysOverdue} days overdue — it was due on {dueDate}, and {amount} is still outstanding.\n\nCould you please confirm the date on which payment will be made?\n\n{paymentDetails}\n\nRegards,\n{businessName}",
       },
       final: {
         subject: "Final notice: invoice {reference}",
         body:
-          "Hi {customerName},\n\nThis is a final notice regarding invoice {reference} for {amount}, now {daysOverdue} days overdue.\n\nIf payment is not received within 7 days, we will pause any further work and refer the account for collection. If there is a problem with the invoice, please reply to this email so we can resolve it.\n\n{paymentDetails}\n\nRegards,\n{businessName}",
+          "Hi {customerName},\n\nThis is a final notice regarding invoice {reference}. The outstanding balance of {amount} is now {daysOverdue} days overdue.\n\nIf we do not receive payment, or hear from you, within 7 days, we will pause any further work and hand the account over for collection.\n\nIf there is a problem with the invoice, please reply to this email and we will resolve it.\n\n{paymentDetails}\n\nRegards,\n{businessName}",
       },
     },
   },

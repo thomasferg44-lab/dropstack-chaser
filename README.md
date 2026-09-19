@@ -52,13 +52,27 @@ Every row in the file ends up in the preview. Blank rows are counted and reporte
 
 `samples/messy-invoices.csv` is a deliberately awkward file for testing. Hand-checked outstanding after importing the six clean rows: 1500 + 450 + 1000 + 0 + 1500 + 7345.67 = **R 11 795,67**.
 
+## Nudging
+
+Tapping **Nudge** on an invoice opens a sheet: pick a tone, read the exact message with real values filled in, then send. The preview is editable — what you see is what gets sent.
+
+**WhatsApp** opens a `wa.me` draft addressed to the customer, from your own phone, at no cost. You still press send inside WhatsApp yourself; nothing is transmitted by this app. **Email** renders subject and body ready to copy. Actual delivery through Resend arrives in the next stage.
+
+Templates live in `companyConfig.js`, one per tone per channel. Placeholders: `{customerName}`, `{businessName}`, `{amount}`, `{reference}`, `{daysOverdue}`, `{dueDate}`, `{paymentDetails}`, plus `{invoiceTotal}` and `{amountPaid}`.
+
+`{amount}` is the balance **still outstanding**, not the invoice total. On a part-paid invoice those differ, and quoting the original total to someone who has already paid half of it is exactly the kind of arithmetic error that ends the client relationship. The shipped templates say "outstanding balance" for the same reason.
+
+A placeholder that resolves to nothing, such as a blank `paymentDetails`, leaves no stray blank line. An unknown placeholder is left visible in the preview so a typo in a client's template is obvious rather than silently blank.
+
+Every send records a `chaser_nudges` row. The message text itself is never stored.
+
 ## RLS
 
 `supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list) and Stage 3 (filters + search) built.**
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search) and Stage 4 (nudge sheet, WhatsApp channel) built.**
 
 The list defaults to open invoices (unpaid + partial). Status, customer and aging-bucket filters combine with a search over customer name, reference and description. Paid and written-off invoices are hidden by default but the count of hidden matches is shown with a one-tap link to include them.
 

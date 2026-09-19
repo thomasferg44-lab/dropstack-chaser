@@ -4,6 +4,9 @@
 
 import { parseAmountToCents } from "./money.js";
 import { parseFlexibleDate, addDays } from "./dates.js";
+import { normalisePhone } from "./phone.js";
+
+export { normalisePhone };
 
 export const DEFAULT_TERMS_DAYS = 30;
 
@@ -155,15 +158,6 @@ export function guessMapping(headers) {
 // ---------------------------------------------------------------------------
 // 3. Row normalisation
 // ---------------------------------------------------------------------------
-
-/** Digits only; South African local "0xx…" becomes "27xx…". */
-export function normalisePhone(raw) {
-  if (!raw) return "";
-  let d = String(raw).replace(/\D/g, "");
-  if (d.startsWith("00")) d = d.slice(2);
-  if (d.length === 10 && d.startsWith("0")) d = "27" + d.slice(1);
-  return d;
-}
 
 export function normaliseEmail(raw) {
   return String(raw || "").trim().toLowerCase();
