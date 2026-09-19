@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer, recordNudge } from "../lib/db.js";
 import { formatCents } from "../lib/money.js";
-import { formatDate, todayISO, daysBetween } from "../lib/dates.js";
+import { formatDate, todayISO } from "../lib/dates.js";
+import { summariseNudges, nudgeLabel } from "../lib/nudgeHistory.js";
 import { BUCKETS, summarise, enrich, sortMostOverdue } from "../lib/aging.js";
 import { STATUS_FILTERS, DEFAULT_FILTERS, filterInvoices, countHiddenByStatus } from "../lib/filters.js";
 import { companyConfig } from "../../companyConfig.js";
@@ -227,17 +228,10 @@ export default function DashboardPage({ onNavigate }) {
   );
 }
 
-function nudgeSummary(nudges, today) {
-  if (!nudges || nudges.length === 0) return null;
-  const last = nudges.map((n) => n.sent_at.slice(0, 10)).sort().at(-1);
-  const ago = daysBetween(last, today);
-  const when = ago === 0 ? "today" : ago === 1 ? "yesterday" : `${ago} days ago`;
-  return `nudged ${nudges.length}× · last ${when}`;
-}
-
 function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge }) {
   const overdue = inv.daysOverdue > 0;
-  const nudged = nudgeSummary(inv.nudges, today);
+  const nudges = summariseNudges(inv.nudges, today);
+  const nudged = nudgeLabel(nudges);
   return (
     <div className={`card flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 ${RING[inv.bucket]}`}>
       <div className="flex-1 min-w-[10rem]">
@@ -262,7 +256,12 @@ function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge }) {
         </div>
         <div className="text-[11px] text-dim">
           due {formatDate(inv.due_on, locale)}
-          {nudged ? ` · ${nudged}` : ""}
+          {nudged && (
+            <>
+              {" · "}
+              <span className={nudges.recent ? "text-status-due" : ""}>{nudged}</span>
+            </>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1 ml-auto">

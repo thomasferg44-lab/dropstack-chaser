@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TONES, CHANNELS, renderNudge } from "../lib/nudge.js";
 import { waLink } from "../lib/phone.js";
 import { sendNudgeEmail } from "../lib/email.js";
+import { summariseNudges, overNudgeWarning, describeNudge } from "../lib/nudgeHistory.js";
 import { formatCents, outstandingCents } from "../lib/money.js";
 import { formatDate, todayISO, daysOverdue } from "../lib/dates.js";
 import { companyConfig } from "../../companyConfig.js";
@@ -50,6 +51,8 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
 
   const body = edited ? text : nudge?.body || "";
   const days = daysOverdue(invoice.due_on, today);
+  const history = useMemo(() => summariseNudges(invoice.nudges, today), [invoice.nudges, today]);
+  const warning = overNudgeWarning(history, invoice.customer?.name);
 
   async function send() {
     setBusy(true);
@@ -102,6 +105,15 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
           owed on {invoice.reference || "this invoice"} · due {formatDate(invoice.due_on, locale)}
           {days > 0 && <> · <span className="text-status-due">{days} days overdue</span></>}
         </div>
+
+        {warning && (
+          <div className="rounded-lg border border-status-due/50 bg-status-due/10 p-3">
+            <div className="text-sm text-status-due font-medium">{warning}</div>
+            <div className="text-xs text-mute mt-1">
+              You can still send — this is a heads-up, not a block.
+            </div>
+          </div>
+        )}
 
         <div className="field">
           <label>Tone</label>
@@ -182,6 +194,20 @@ export default function NudgeSheet({ invoice, onClose, onSent }) {
           <p className="text-xs text-dim">
             Sent from {companyConfig.fromEmail} via Resend. Replies go to {companyConfig.replyToEmail || "your reply-to address"}.
           </p>
+        )}
+
+        {history.count > 0 && (
+          <details className="text-sm">
+            <summary className="cursor-pointer text-mute hover:text-text">
+              Previous nudges ({history.count})
+            </summary>
+            <ul className="mt-2 flex flex-col gap-1 text-xs text-dim">
+              {history.history.slice(0, 5).map((n) => (
+                <li key={n.id || n.sent_at}>{describeNudge(n, locale)}</li>
+              ))}
+              {history.count > 5 && <li className="text-dim">+{history.count - 5} earlier</li>}
+            </ul>
+          </details>
         )}
 
         <div className="flex flex-wrap justify-end gap-2">

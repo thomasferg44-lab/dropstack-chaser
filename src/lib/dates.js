@@ -110,6 +110,18 @@ export function daysOverdue(dueOn, today = todayISO()) {
   return daysBetween(dueOn, today);
 }
 
+/**
+ * A timestamptz (ISO string or Date) → local "YYYY-MM-DD".
+ * Slicing the string instead would use UTC, so a nudge sent at 01:00 in
+ * Johannesburg would read as "yesterday".
+ */
+export function isoFromTimestamp(ts) {
+  if (!ts) return null;
+  const d = ts instanceof Date ? ts : new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return build(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
 /** "YYYY-MM-DD" → "17 Sep 2026" for display. */
 export function formatDate(iso, locale = "en-ZA") {
   if (!iso) return "—";

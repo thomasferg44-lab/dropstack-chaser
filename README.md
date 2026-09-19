@@ -64,7 +64,9 @@ Templates live in `companyConfig.js`, one per tone per channel. Placeholders: `{
 
 A placeholder that resolves to nothing, such as a blank `paymentDetails`, leaves no stray blank line. An unknown placeholder is left visible in the preview so a typo in a client's template is obvious rather than silently blank.
 
-Every send records a `chaser_nudges` row. The message text itself is never stored.
+Every send records a `chaser_nudges` row. The message text itself is never stored, only the tone, the channel and the time.
+
+The sheet lists previous nudges for that invoice, and the dashboard row shows "nudged 2× · last 5 days ago". If the invoice was nudged within the last three days the sheet opens with a warning naming the customer, the tone used and when. It is a warning, not a block: the send button stays enabled, because the owner knows their customer and this tool does not. Chasing someone every day costs the client a relationship worth more than the invoice.
 
 ### Email delivery
 
@@ -86,7 +88,7 @@ Functions do not run under `npm run dev`. Use `npx netlify dev`, or the app will
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search), Stage 4 (nudge sheet, WhatsApp channel) and Stage 5 (email channel via Resend) built.**
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search), Stage 4 (nudge sheet, WhatsApp channel), Stage 5 (email channel via Resend) and Stage 6 (nudge history, over-nudge warning) built.**
 
 The list defaults to open invoices (unpaid + partial). Status, customer and aging-bucket filters combine with a search over customer name, reference and description. Paid and written-off invoices are hidden by default but the count of hidden matches is shown with a one-tap link to include them.
 
