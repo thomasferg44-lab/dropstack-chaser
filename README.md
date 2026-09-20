@@ -82,6 +82,15 @@ Set `fromEmail`, `fromName` and `replyToEmail` in `companyConfig.js`. The domain
 
 Functions do not run under `npm run dev`. Use `npx netlify dev`, or the app will report that the send function was not found.
 
+### What else was verified in Postgres
+
+The status trigger, the import RPC and its atomicity were exercised in the same local engine:
+
+- Status moves unpaid → partial → paid as amounts change, stays `paid` on overpayment, and cannot be forced out of step by a client writing `status` directly.
+- `written_off` survives an amount change, and is re-derived correctly when the payment path clears it.
+- `samples/messy-invoices.csv` imported through the real parser and the real RPC produces 6 invoices, 4 customers and **R 11 795,67** outstanding, matching the hand-checked figure above.
+- An import referencing an unknown customer key is rejected whole: no invoices and no half-created customer are left behind.
+
 ## Recording payments
 
 The **Payment** button on an invoice row asks for the amount **just received** and adds it to what was paid before. Before you confirm, the sheet spells out the resulting paid total, the new balance and the status it will become. **Paid in full** prefills the outstanding balance, not the invoice total.
@@ -94,7 +103,9 @@ Status is never set by the app. It is derived by the database trigger from the t
 
 ## RLS
 
-`supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
+`supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. **Verified locally, but still run it against your project.** The schema and this script were executed end to end against PGlite, a real Postgres compiled to WebAssembly, with Supabase's default privileges recreated first (those grant EXECUTE on every new function in `public` to `anon` and `authenticated`, which is what made the original function-grant hole possible). All 39 checks passed. As a control, deleting the `revoke all on function` lines made 5 checks fail, so the guard is real and not vacuous. That harness is not committed and PGlite is not a dependency of this project. It does not replace running the script in the Supabase SQL editor, where the real roles, extensions and platform defaults live.
+
+It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
 
 ## Build status
 
