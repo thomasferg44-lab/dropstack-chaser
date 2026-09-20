@@ -82,13 +82,23 @@ Set `fromEmail`, `fromName` and `replyToEmail` in `companyConfig.js`. The domain
 
 Functions do not run under `npm run dev`. Use `npx netlify dev`, or the app will report that the send function was not found.
 
+## Recording payments
+
+The **Payment** button on an invoice row asks for the amount **just received** and adds it to what was paid before. Before you confirm, the sheet spells out the resulting paid total, the new balance and the status it will become. **Paid in full** prefills the outstanding balance, not the invoice total.
+
+To correct a running total, for example after a typo, edit the invoice instead: the "Amount paid" field there is absolute. Keeping the two separate is what stops a second R500 payment from silently overwriting the first.
+
+Overpayment is allowed and flagged. The balance never goes negative and the invoice is marked paid. Recording a payment against a written-off invoice brings it back, because money received means it was not written off after all.
+
+Status is never set by the app. It is derived by the database trigger from the two amount columns, so it cannot drift from the arithmetic. Paid invoices drop out of the default view and stay searchable through the status filter.
+
 ## RLS
 
 `supabase/verify-rls.sql` switches to the `anon` and `authenticated` roles in turn and tries select/insert/update/delete on all three tables. It checks `current_user`, not `auth.role()` — the latter is null in the SQL editor and would make every guard silently pass. It then reads the catalog directly: every `chaser_%` table must have RLS enabled with no anon privileges, and every `chaser_%` function must deny EXECUTE to anon and PUBLIC unless listed in `anon_allow` at the top of that block (empty in v1). Supabase grants EXECUTE on new functions to anon and authenticated by default, so any function added to `schema.sql` needs its own revoke lines. Run it after `schema.sql`; every row must read PASS.
 
 ## Build status
 
-**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search), Stage 4 (nudge sheet, WhatsApp channel), Stage 5 (email channel via Resend) and Stage 6 (nudge history, over-nudge warning) built.**
+**v1 in progress — Stage 1 (schema, auth, manual entry, CSV import) Stage 2 (dashboard: outstanding headline, aging buckets, sorted list), Stage 3 (filters + search), Stage 4 (nudge sheet, WhatsApp channel), Stage 5 (email channel via Resend) Stage 6 (nudge history, over-nudge warning) and Stage 9 (payment recording) built. This completes the v1 build order.**
 
 The list defaults to open invoices (unpaid + partial). Status, customer and aging-bucket filters combine with a search over customer name, reference and description. Paid and written-off invoices are hidden by default but the count of hidden matches is shown with a one-tap link to include them.
 

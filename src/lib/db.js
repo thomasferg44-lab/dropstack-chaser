@@ -73,6 +73,20 @@ export async function deleteInvoice(id) {
   unwrap(await supabase.from("chaser_invoices").delete().eq("id", id));
 }
 
+/**
+ * Record a payment by writing the new running total. The status trigger
+ * recalculates status from the amounts, so it can never drift.
+ * `clearWriteOff` un-writes-off an invoice that has now been paid something.
+ */
+export async function recordPayment({ invoiceId, newPaidCents, clearWriteOff = false }) {
+  if (!Number.isInteger(newPaidCents)) throw new Error("newPaidCents must be an integer (cents)");
+  const row = { amount_paid_cents: newPaidCents };
+  if (clearWriteOff) row.status = "unpaid"; // the trigger re-derives it immediately
+  return unwrap(
+    await supabase.from("chaser_invoices").update(row).eq("id", invoiceId).select(INVOICE_SELECT).single(),
+  );
+}
+
 // ---- nudges ----------------------------------------------------------------
 
 /** Record that a nudge was sent. The message itself is never stored. */

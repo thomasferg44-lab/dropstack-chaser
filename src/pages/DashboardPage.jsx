@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer, recordNudge } from "../lib/db.js";
+import { listCustomers, listInvoices, saveInvoice, deleteInvoice, saveCustomer, recordNudge, recordPayment } from "../lib/db.js";
 import { formatCents } from "../lib/money.js";
 import { formatDate, todayISO } from "../lib/dates.js";
 import { summariseNudges, nudgeLabel } from "../lib/nudgeHistory.js";
@@ -8,6 +8,7 @@ import { STATUS_FILTERS, DEFAULT_FILTERS, filterInvoices, countHiddenByStatus } 
 import { companyConfig } from "../../companyConfig.js";
 import InvoiceForm from "../components/InvoiceForm.jsx";
 import NudgeSheet from "../components/NudgeSheet.jsx";
+import PaymentSheet from "../components/PaymentSheet.jsx";
 import Modal from "../components/Modal.jsx";
 import StatusPill from "../components/StatusPill.jsx";
 
@@ -38,6 +39,7 @@ export default function DashboardPage({ onNavigate }) {
   const filtersActive = filters.status !== "open" || filters.customerId || filters.query.trim();
   const [editing, setEditing] = useState(null);
   const [nudging, setNudging] = useState(null);
+  const [paying, setPaying] = useState(null);
   const [error, setError] = useState(null);
   const today = todayISO();
   const { currency, locale } = companyConfig;
@@ -66,6 +68,10 @@ export default function DashboardPage({ onNavigate }) {
   async function handleDelete(inv) {
     if (!window.confirm(`Delete invoice ${inv.reference || ""} for ${inv.customer?.name}?`)) return;
     await deleteInvoice(inv.id);
+    await load();
+  }
+  async function handlePayment(payment) {
+    await recordPayment(payment);
     await load();
   }
   async function handleNudgeSent({ invoiceId, channel, tone }) {
@@ -204,10 +210,15 @@ export default function DashboardPage({ onNavigate }) {
               onEdit={() => setEditing(inv)}
               onDelete={() => handleDelete(inv)}
               onNudge={() => setNudging(inv)}
+              onPay={() => setPaying(inv)}
             />
           ))}
         </div>
       </section>
+
+      {paying && (
+        <PaymentSheet invoice={paying} onClose={() => setPaying(null)} onSaved={handlePayment} />
+      )}
 
       {nudging && (
         <NudgeSheet invoice={nudging} onClose={() => setNudging(null)} onSent={handleNudgeSent} />
@@ -228,8 +239,9 @@ export default function DashboardPage({ onNavigate }) {
   );
 }
 
-function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge }) {
+function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge, onPay }) {
   const overdue = inv.daysOverdue > 0;
+  const settled = inv.status === "paid";
   const nudges = summariseNudges(inv.nudges, today);
   const nudged = nudgeLabel(nudges);
   return (
@@ -268,7 +280,12 @@ function InvoiceRow({ inv, today, locale, onEdit, onDelete, onNudge }) {
         <StatusPill status={inv.status} />
         <button className="btn-ghost px-2 py-1" onClick={onEdit}>Edit</button>
         <button className="btn-ghost px-2 py-1 hover:text-status-critical" onClick={onDelete}>Delete</button>
-        <button className="btn-secondary px-3 py-1" onClick={onNudge}>Nudge</button>
+        {!settled && (
+          <>
+            <button className="btn-secondary px-3 py-1" onClick={onPay}>Payment</button>
+            <button className="btn-secondary px-3 py-1" onClick={onNudge}>Nudge</button>
+          </>
+        )}
       </div>
     </div>
   );
