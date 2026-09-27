@@ -28,7 +28,7 @@ export default function CustomerForm({ initial, onSave, onCancel }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="field">
           <label>Phone (for WhatsApp)</label>
-          <input value={form.phone || ""} onChange={set("phone")} placeholder="082 123 4567" inputMode="tel" />
+          <input value={form.phone || ""} onChange={set("phone")} placeholder="082 000 0000" inputMode="tel" />
         </div>
         <div className="field">
           <label>Email</label>

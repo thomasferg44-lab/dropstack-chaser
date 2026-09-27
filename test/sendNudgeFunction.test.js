@@ -5,7 +5,7 @@ import handler from "../netlify/functions/send-nudge.mjs";
 const VALID = {
   to: "test@example.com",
   subject: "Overdue: invoice INV-001",
-  body: "Hi Bob,\n\nInvoice INV-001 is overdue.",
+  body: "Hi Demo Customer,\n\nInvoice INV-001 is overdue.",
   tone: "firm",
   invoiceId: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
 };
@@ -26,7 +26,7 @@ function stubFetch({ authOk = true, resendStatus = 200, resendBody = { id: "re_1
     calls.push({ url: String(url), init });
     if (String(url).includes("/auth/v1/user")) {
       return authOk
-        ? new Response(JSON.stringify({ id: "user-1", email: "owner@example.co.za" }), { status: 200 })
+        ? new Response(JSON.stringify({ id: "user-1", email: "owner@example.com" }), { status: 200 })
         : new Response(JSON.stringify({ message: "bad jwt" }), { status: 401 });
     }
     return new Response(JSON.stringify(resendBody), { status: resendStatus });

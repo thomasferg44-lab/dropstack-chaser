@@ -5,7 +5,7 @@ import { validateEmailRequest, isEmail, textToHtml, LIMITS } from "../src/lib/nu
 const VALID = {
   to: "test@example.com",
   subject: "Overdue: invoice INV-001",
-  body: "Hi Bob,\n\nInvoice INV-001 is overdue.",
+  body: "Hi Demo Customer,\n\nInvoice INV-001 is overdue.",
   tone: "firm",
   invoiceId: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
 };

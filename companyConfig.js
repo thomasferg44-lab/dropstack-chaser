@@ -1,9 +1,15 @@
 // Everything client-specific lives here. Non-secret only — secrets go in .env.
 // A new client deploy = swap this file, fresh Supabase project, new Netlify site.
 
+// PLACEHOLDERS: every value below is invented and must be replaced per client.
+// Emails deliberately use example.com, which IANA reserves permanently and
+// publishes a null MX for, so a forgotten placeholder can never deliver mail to
+// a real person. Do not use example.co.za or similar: those are registrable by
+// anyone, so a stranger could start receiving your client's customer replies.
+
 export const companyConfig = {
-  businessName: "Example Services",
-  ownerName: "Owner",
+  businessName: "Sample Service Co",
+  ownerName: "Sample Owner",
   currency: "ZAR", // ISO 4217 code. Display formatting only — storage is integer cents.
   locale: "en-ZA", // used by Intl for number/date formatting
 
@@ -13,9 +19,9 @@ export const companyConfig = {
   // Email sending (Netlify Function → Resend).
   // fromEmail's DOMAIN must be verified in Resend or every send is rejected.
   // Not a secret: the API key lives in .env, never here.
-  fromEmail: "accounts@example.co.za",
-  fromName: "Example Services",
-  replyToEmail: "owner@example.co.za", // where customer replies should land
+  fromEmail: "accounts@example.com",
+  fromName: "Sample Service Co",
+  replyToEmail: "owner@example.com", // where customer replies should land
 
   // Nudge templates. Placeholders: {customerName} {businessName} {amount}
   // {reference} {daysOverdue} {dueDate} {paymentDetails} {invoiceTotal} {amountPaid}

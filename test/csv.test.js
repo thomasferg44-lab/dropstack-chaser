@@ -8,10 +8,10 @@ import { sumCents } from "../src/lib/money.js";
 const TODAY = "2026-09-17";
 
 test("parseCsv handles quotes, CRLF, BOM, semicolons", () => {
-  const r = parseCsv('﻿Name;Amount\r\n"Smith, Bob";"R1 500,00"\r\n"Say ""hi""";2\r\n');
+  const r = parseCsv('﻿Name;Amount\r\n"Demo, Customer";"R1 500,00"\r\n"Say ""hi""";2\r\n');
   assert.equal(r.delimiter, ";");
   assert.deepEqual(r.headers, ["Name", "Amount"]);
-  assert.deepEqual(r.rows.map((x) => x.cells), [["Smith, Bob", "R1 500,00"], ['Say "hi"', "2"]]);
+  assert.deepEqual(r.rows.map((x) => x.cells), [["Demo, Customer", "R1 500,00"], ['Say "hi"', "2"]]);
   assert.deepEqual(r.rows.map((x) => x.line), [2, 3]);
 });
 
@@ -25,20 +25,20 @@ test("guessMapping is forgiving about column names", () => {
 });
 
 test("normalisePhone", () => {
-  assert.equal(normalisePhone("082 123 4567"), "27821234567");
-  assert.equal(normalisePhone("+27 82 123 4567"), "27821234567");
-  assert.equal(normalisePhone("0027821234567"), "27821234567");
+  assert.equal(normalisePhone("082 000 0000"), "27820000000");
+  assert.equal(normalisePhone("+27 82 000 0000"), "27820000000");
+  assert.equal(normalisePhone("0027820000000"), "27820000000");
   assert.equal(normalisePhone(""), "");
 });
 
 const MESSY = `Customer,Phone,Email,Invoice No,Description,Total,Paid,Invoice Date,Due Date
-Bob's Plumbing,082 123 4567,bob@example.com,INV-001,Geyser,"R1,500.00",,01/08/2026,31/08/2026
-Bob's Plumbing,+27821234567,,INV-002,Callout,"R 450,00",,2026-08-15,
+Sample Plumbing Co,082 000 0000,billing@example.com,INV-001,Geyser,"R1,500.00",,01/08/2026,31/08/2026
+Sample Plumbing Co,+27820000000,,INV-002,Callout,"R 450,00",,2026-08-15,
 ,,,,,,,,
-Jane Doe,,jane@example.com,INV-003,Garden,"1 200",200,15 Aug 2026,14/09/2026
+Demo Landscaping,,hello@example.com,INV-003,Garden,"1 200",200,15 Aug 2026,14/09/2026
 Broken Row,,,INV-004,,abc,,32/13/2026,
-Zero Co,,,INV-005,,0,,17/09/2026,17/09/2026
-Bob's Plumbing,0821234567,,INV-001,Dup,1500,,01/08/2026,31/08/2026
+Zero Amount Co,,,INV-005,,0,,17/09/2026,17/09/2026
+Sample Plumbing Co,0820000000,,INV-001,Dup,1500,,01/08/2026,31/08/2026
 `;
 
 test("buildPreview never drops a row and flags problems", () => {
@@ -69,20 +69,20 @@ test("buildPreview never drops a row and flags problems", () => {
 
   assert.ok(r6.warnings.some((w) => w.startsWith("Duplicate of line 2")));
 
-  // same customer key across three Bob rows (phone-based)
+  // same customer key across three Demo Customer rows (phone-based)
   assert.equal(r1.customer.key, r2.customer.key);
   assert.equal(r1.customer.key, r6.customer.key);
-  assert.equal(r1.customer.key, "phone:27821234567");
+  assert.equal(r1.customer.key, "phone:27820000000");
 });
 
 test("payload dedupes new customers and skips error rows", () => {
   const p = buildPreview(MESSY, { today: TODAY, defaultCurrency: "ZAR" });
   const payload = buildImportPayload(p.rows);
-  assert.equal(payload.customers.length, 3); // Bob, Jane, Zero Co (Broken Row excluded)
+  assert.equal(payload.customers.length, 3); // Demo Customer, Demo Landscaping, Zero Amount Co (Broken Row excluded)
   assert.equal(payload.invoices.length, 5); // 6 rows minus the broken one
-  const bob = payload.customers.find((c) => c.name === "Bob's Plumbing");
+  const bob = payload.customers.find((c) => c.name === "Sample Plumbing Co");
   assert.equal(bob.id, null);
-  assert.equal(bob.email, "bob@example.com");
+  assert.equal(bob.email, "billing@example.com");
 
   // hand-checked outstanding: 1500 + 450 + (1200-200) + 0 + 1500 = 4450.00
   const outstanding = sumCents(payload.invoices.map((i) => i.amount_cents - i.amount_paid_cents));
@@ -91,9 +91,9 @@ test("payload dedupes new customers and skips error rows", () => {
 
 test("existing customers are matched by phone, email, then name; existing refs flagged", () => {
   const existing = [
-    { id: "c1", name: "Bob's Plumbing", phone: "27821234567", email: null },
-    { id: "c2", name: "Jane Doe", phone: null, email: "JANE@example.com" },
-    { id: "c3", name: "zero co", phone: null, email: null },
+    { id: "c1", name: "Sample Plumbing Co", phone: "27820000000", email: null },
+    { id: "c2", name: "Demo Landscaping", phone: null, email: "HELLO@example.com" },
+    { id: "c3", name: "zero amount co", phone: null, email: null },
   ];
   const invoices = [{ customer_id: "c1", reference: "inv-001" }];
   const p = buildPreview(MESSY, { today: TODAY, existingCustomers: existing, existingInvoices: invoices });

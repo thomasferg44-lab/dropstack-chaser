@@ -23,6 +23,8 @@ Secrets live in `.env` (copy from `.env.example`). Never commit it.
 
 ## White-labelling for a client
 
+Every value shipped in `companyConfig.js` is an invented placeholder and must be replaced per client. Email placeholders use `example.com`, which IANA reserves permanently and publishes a null MX record for, so a forgotten placeholder cannot deliver mail to a real person. Do not substitute `example.co.za` or any other registrable domain: it is unregistered today, but anyone could register it tomorrow and start receiving your client's customer replies.
+
 All client-specific values live in `companyConfig.js`. A new client deploy is: fork/copy this repo, swap `companyConfig.js`, create a fresh Supabase project and run `schema.sql`, connect a new Netlify site, point the domain. No code changes.
 
 ## Running the tests

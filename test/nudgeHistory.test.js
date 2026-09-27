@@ -16,7 +16,7 @@ test("no nudges", () => {
   assert.equal(s.daysSince, null);
   assert.equal(s.recent, false);
   assert.equal(nudgeLabel(s), null);
-  assert.equal(overNudgeWarning(s, "Bob"), null);
+  assert.equal(overNudgeWarning(s, "Demo Customer"), null);
 });
 
 test("counts and finds the most recent regardless of input order", () => {
@@ -36,13 +36,13 @@ test("the warning fires up to and including the boundary, and not beyond", () =>
   }
   const older = summariseNudges([at("2026-09-15")], TODAY); // 4 days
   assert.equal(older.recent, false);
-  assert.equal(overNudgeWarning(older, "Bob"), null);
+  assert.equal(overNudgeWarning(older, "Demo Customer"), null);
 });
 
 test("the warning names the customer, the tone and when", () => {
-  const w = overNudgeWarning(summariseNudges([at("2026-09-18", "firm")], TODAY), "Bob");
+  const w = overNudgeWarning(summariseNudges([at("2026-09-18", "firm")], TODAY), "Demo Customer");
   assert.match(w, /Firm nudge/);
-  assert.match(w, /Bob/);
+  assert.match(w, /Demo Customer/);
   assert.match(w, /yesterday/);
   const noName = overNudgeWarning(summariseNudges([at("2026-09-19")], TODAY), "");
   assert.match(noName, /this customer/);

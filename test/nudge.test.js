@@ -4,7 +4,7 @@ import { renderTemplate, buildNudgeVars, renderNudge, TONES } from "../src/lib/n
 import { companyConfig } from "../companyConfig.js";
 
 const TODAY = "2026-09-19";
-const CONFIG = { ...companyConfig, businessName: "Test Landscaping", locale: "en-ZA", currency: "ZAR" };
+const CONFIG = { ...companyConfig, businessName: "Demo Service Co", locale: "en-ZA", currency: "ZAR" };
 
 const invoice = (over = {}) => ({
   amount_cents: 150000,
@@ -12,7 +12,7 @@ const invoice = (over = {}) => ({
   currency: "ZAR",
   reference: "INV-001",
   due_on: "2026-08-20",
-  customer: { name: "Bob", phone: "082 000 0000", email: "test@example.com" },
+  customer: { name: "Demo Customer", phone: "082 000 0000", email: "test@example.com" },
   ...over,
 });
 
@@ -53,7 +53,7 @@ test("all three tones render for both channels with real values", () => {
     const wa = renderNudge(invoice(), { tone, channel: "whatsapp", config: CONFIG, today: TODAY });
     assert.ok(wa.canSend);
     assert.ok(!/\{\w+\}/.test(wa.body), `${tone} whatsapp left a placeholder: ${wa.body}`);
-    assert.ok(wa.body.includes("Bob") && wa.body.includes("Test Landscaping"));
+    assert.ok(wa.body.includes("Demo Customer") && wa.body.includes("Demo Service Co"));
     assert.ok(strip(wa.body).includes("R 1 500,00"));
     assert.ok(wa.url.startsWith("https://wa.me/27820000000?text="));
     assert.equal(decodeURIComponent(wa.url.split("?text=")[1]), wa.body);
@@ -61,7 +61,7 @@ test("all three tones render for both channels with real values", () => {
     const em = renderNudge(invoice(), { tone, channel: "email", config: CONFIG, today: TODAY });
     assert.ok(em.canSend && em.to === "test@example.com");
     assert.ok(!/\{\w+\}/.test(em.subject + em.body), `${tone} email left a placeholder`);
-    assert.ok(em.subject.length > 0 && em.body.includes("Bob"));
+    assert.ok(em.subject.length > 0 && em.body.includes("Demo Customer"));
   }
 });
 
@@ -74,20 +74,20 @@ test("tones are genuinely different text, not the same string", () => {
 });
 
 test("missing contact details block the send with a reason", () => {
-  const noPhone = renderNudge(invoice({ customer: { name: "Bob", phone: null } }), {
+  const noPhone = renderNudge(invoice({ customer: { name: "Demo Customer", phone: null } }), {
     tone: "gentle", channel: "whatsapp", config: CONFIG, today: TODAY,
   });
   assert.equal(noPhone.canSend, false);
   assert.equal(noPhone.url, null);
   assert.match(noPhone.blockedReason, /No phone number/);
 
-  const badPhone = renderNudge(invoice({ customer: { name: "Bob", phone: "123" } }), {
+  const badPhone = renderNudge(invoice({ customer: { name: "Demo Customer", phone: "123" } }), {
     tone: "gentle", channel: "whatsapp", config: CONFIG, today: TODAY,
   });
   assert.equal(badPhone.canSend, false);
   assert.match(badPhone.blockedReason, /country code/);
 
-  const noEmail = renderNudge(invoice({ customer: { name: "Bob", email: "" } }), {
+  const noEmail = renderNudge(invoice({ customer: { name: "Demo Customer", email: "" } }), {
     tone: "firm", channel: "email", config: CONFIG, today: TODAY,
   });
   assert.equal(noEmail.canSend, false);

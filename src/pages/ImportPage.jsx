@@ -7,9 +7,11 @@ import { formatCents, sumCents } from "../lib/money.js";
 import { todayISO } from "../lib/dates.js";
 import { companyConfig } from "../../companyConfig.js";
 
+// Invented sample data. Emails use the permanently reserved example.com and
+// phone numbers use an all-zero body, so nothing here can reach a real person.
 const SAMPLE = `Customer,Phone,Email,Invoice No,Description,Amount,Paid,Invoice Date,Due Date
-Bob's Plumbing,082 000 0000,test@example.com,INV-001,Geyser,"R1,500.00",,01/08/2026,31/08/2026
-Jane Doe,,jane@example.com,INV-002,Garden,"1 200",200,15 Aug 2026,14/09/2026`;
+Sample Plumbing Co,082 000 0000,billing@example.com,INV-001,Geyser,"R1,500.00",,01/08/2026,31/08/2026
+Demo Landscaping,,hello@example.com,INV-002,Garden,"1 200",200,15 Aug 2026,14/09/2026`;
 
 const EDITABLE = ["customer_name", "phone", "email", "reference", "description", "amount", "amount_paid", "issued_on", "due_on", "currency", "notes"];
 
@@ -163,7 +165,7 @@ export default function ImportPage({ onNavigate }) {
           </p>
           <textarea
             rows={5}
-            placeholder={"Customer,Amount,Due Date\nJane Doe,R1 500,30/09/2026"}
+            placeholder={"Customer,Amount,Due Date\nDemo Landscaping,R1 500,30/09/2026"}
             className="font-mono text-xs"
             onBlur={(e) => e.target.value.trim() && loadText(e.target.value, "pasted")}
           />

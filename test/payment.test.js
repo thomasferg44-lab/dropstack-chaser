@@ -82,7 +82,7 @@ test("dashboard totals match hand arithmetic after payments", () => {
   // Hand check: 1500.00 + 12345.67 + 450.00 + 0.99 = 14296.66
   assert.equal(summarise(book, TODAY).outstanding, 1429666);
 
-  // Bob pays R500 off invoice b, then R5 000 more.
+  // Demo Customer pays R500 off invoice b, then R5 000 more.
   const apply = (id, input) => {
     book = book.map((inv) => {
       if (inv.id !== id) return inv;
