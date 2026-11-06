@@ -3,6 +3,13 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Health check: GET /api/health -> booleans only (see src/lib/health.js).
+# Must come before the SPA fallback.
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
 # Single-page app: every path serves index.html
 [[redirects]]
   from = "/*"

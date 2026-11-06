@@ -29,10 +29,14 @@ const DB_KEY = "dropstack-mock-db-v1";
 const SESSION_KEY = "dropstack-mock-session-v1";
 export const MOCK_OWNER_ID = "00000000-0000-4000-8000-00000000c4a5";
 
+// localStorage when the browser has it; an in-memory map otherwise (Node
+// unit tests, private windows with storage blocked).
+const mem = new Map();
+const hasLs = () => { try { return typeof localStorage !== "undefined" && localStorage !== null && typeof localStorage.getItem === "function"; } catch { return false; } };
 const ls = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { /* blocked: memory only */ } },
-  del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } },
+  get(k) { if (hasLs()) { try { return localStorage.getItem(k); } catch { /* fall through */ } } return mem.has(k) ? mem.get(k) : null; },
+  set(k, v) { if (hasLs()) { try { localStorage.setItem(k, v); return; } catch { /* fall through */ } } mem.set(k, v); },
+  del(k) { if (hasLs()) { try { localStorage.removeItem(k); return; } catch { /* fall through */ } } mem.delete(k); },
 };
 const legacy = () => ls.get("dropstack-mock-schema") === "legacy";
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -230,6 +234,10 @@ class Query {
         const row = { ...DEFAULTS[this.table](), id: uuid(), created_at: nowIso(), ...(TIME_COL[this.table] ? { [TIME_COL[this.table]]: nowIso() } : {}), ...clone(p) };
         if (scoped) row.owner_id = p.owner_id ?? uid;
         if (this.table === "chaser_invoices") invoiceTrigger(row, null, session.user.email);
+        if (!legacy() && (this.table === "chaser_nudges" || this.table === "chaser_promises")) {
+          // chaser_inherit_demo(): a nudge/promise on a demo invoice is demo too
+          row.is_demo = Boolean(row.is_demo) || Boolean(state.chaser_invoices.find((i) => i.id === row.invoice_id)?.is_demo);
+        }
         const bad = checkRow(this.table, row, state);
         if (bad) return err("23514", bad);
         result.push(row);
@@ -282,6 +290,7 @@ class Query {
 function importInvoices(state, payload, { forceDemo = false, actorEmail } = {}) {
   const keyToId = {};
   let customersCreated = 0, invoicesCreated = 0, skipped = 0;
+  const createdIds = [];
   const work = clone(state);
   const demo = (v) => (forceDemo ? true : legacy() ? undefined : Boolean(v));
   for (const c of payload.customers ?? []) {
@@ -290,6 +299,7 @@ function importInvoices(state, payload, { forceDemo = false, actorEmail } = {}) 
       if (!legacy()) row.is_demo = demo(c.is_demo);
       work.chaser_customers.push(row);
       keyToId[c.key] = row.id;
+      createdIds.push(row.id);
       customersCreated++;
     } else keyToId[c.key] = c.id;
   }
@@ -313,6 +323,10 @@ function importInvoices(state, payload, { forceDemo = false, actorEmail } = {}) 
     if (i.key) invIds[i.key] = row.id;
     invoicesCreated++;
   }
+  // A customer created in this call only for skipped invoices is removed again.
+  const shells = work.chaser_customers.filter((c) => createdIds.includes(c.id) && !work.chaser_invoices.some((i) => i.customer_id === c.id));
+  work.chaser_customers = work.chaser_customers.filter((c) => !shells.includes(c));
+  customersCreated -= shells.length;
   return { work, invIds, result: { customers_created: customersCreated, invoices_created: invoicesCreated, ...(legacy() ? {} : { invoices_skipped: skipped }) } };
 }
 
@@ -352,7 +366,7 @@ async function rpc(client, fn, args = {}) {
         if (row && row.status === "paid") row.paid_at = paidAt;
       }
       save(work);
-      return { data: { ...result, nudges_created: nudges, promises_created: promises }, error: null };
+      return { data: { customers_created: result.customers_created, invoices_created: result.invoices_created, nudges_created: nudges, promises_created: promises }, error: null };
     }
     if (fn === "chaser_remove_demo") {
       const counts = {
@@ -365,11 +379,17 @@ async function rpc(client, fn, args = {}) {
       const invIds = state.chaser_invoices.filter((r) => r.is_demo).map((r) => r.id);
       cascadeDelete(state, "chaser_invoices", invIds);
       state.chaser_invoices = state.chaser_invoices.filter((r) => !r.is_demo);
+      // A demo customer the owner has since given a real invoice is kept, un-marked.
+      let kept = 0;
+      for (const c of state.chaser_customers) {
+        if (c.is_demo && state.chaser_invoices.some((i) => i.customer_id === c.id)) { c.is_demo = false; kept++; }
+      }
+      counts.customers_removed = state.chaser_customers.filter((r) => r.is_demo).length;
       const custIds = state.chaser_customers.filter((r) => r.is_demo).map((r) => r.id);
       cascadeDelete(state, "chaser_customers", custIds);
       state.chaser_customers = state.chaser_customers.filter((r) => !r.is_demo);
       save(state);
-      return { data: counts, error: null };
+      return { data: { ...counts, customers_kept: kept }, error: null };
     }
     return err("PGRST202", `Could not find the function public.${fn} in the schema cache`);
   } catch (e) {

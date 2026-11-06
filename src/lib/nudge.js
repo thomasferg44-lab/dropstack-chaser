@@ -3,8 +3,10 @@
 // can reword them without touching code.
 
 import { formatCents, outstandingCents } from "./money.js";
-import { formatDate, daysOverdue, todayISO } from "./dates.js";
+import { formatDate, daysOverdue, todayISO, isoFromTimestamp } from "./dates.js";
 import { waLink, isWhatsAppable } from "./phone.js";
+import { buildPayLine, paymentInstructions } from "./payInfo.js";
+import { promiseState, brokenCount } from "./promises.js";
 
 export const TONES = [
   { key: "gentle", label: "Gentle", hint: "assumes it was overlooked" },
@@ -32,14 +34,61 @@ export function buildNudgeVars(invoice, config, today = todayISO()) {
   return {
     customerName: invoice.customer?.name || "there",
     businessName: config.businessName,
+    ownerName: config.ownerName || config.businessName,
     amount: formatCents(outstandingCents(invoice), currency, locale),
     invoiceTotal: formatCents(invoice.amount_cents, currency, locale),
     amountPaid: formatCents(invoice.amount_paid_cents || 0, currency, locale),
     reference: invoice.reference || "—",
     daysOverdue: String(Math.max(0, days)),
     dueDate: formatDate(invoice.due_on, locale),
-    paymentDetails: config.paymentDetails || "",
+    paymentDetails: paymentInstructions(config),
+    payLine: buildPayLine(config, invoice),
+    jobPhrase: jobPhrase(invoice.description),
+    paidLine: paidLine(invoice, currency, locale),
+    promiseLine: promiseLine(invoice, today, locale),
   };
+}
+
+// ---- context lines: what makes a nudge read as written for this customer ----
+
+const ORDINAL = ["", "first", "second", "third", "fourth", "fifth"];
+
+/** " for the geyser replacement" from the description, or "". */
+export function jobPhrase(description) {
+  let d = String(description ?? "").replace(/\s+/g, " ").trim().replace(/[.;:,]+$/, "");
+  if (!d) return "";
+  if (d.length > 60) d = d.slice(0, 57).replace(/\s+\S*$/, "") + "…";
+  // Lower-case a leading capital unless the word is an acronym ("DB board").
+  if (/^[A-Z][a-z]/.test(d)) d = d[0].toLowerCase() + d.slice(1);
+  return /^(the|a|an|your|our)\b/i.test(d) ? ` for ${d}` : ` for the ${d}`;
+}
+
+/** Thanks for what was already paid, on a part-paid invoice. */
+export function paidLine(invoice, currency, locale) {
+  const paid = Number(invoice.amount_paid_cents || 0);
+  if (paid <= 0 || paid >= Number(invoice.amount_cents)) return "";
+  return ` Thanks for the ${formatCents(paid, currency, locale)} already paid.`;
+}
+
+/**
+ * The customer's own words, played back: a promise they made and whether it
+ * held. Factual, never accusatory.
+ */
+export function promiseLine(invoice, today, locale) {
+  const ps = promiseState(invoice, invoice.promises, today);
+  if (!ps.promise) return "";
+  const promised = formatDate(ps.promise.promised_on, locale);
+  if (ps.state === "broken") {
+    const logged = isoFromTimestamp(ps.promise.created_at);
+    const said = logged ? `On ${formatDate(logged, locale)} you mentioned` : "You mentioned";
+    const earlier = brokenCount(invoice, invoice.promises, today) - 1; // the newest one is counted too
+    const repeat = earlier > 0 && ORDINAL[earlier + 1] ? ` This is the ${ORDINAL[earlier + 1]} payment date that has passed.` : "";
+    return ` ${said} paying by ${promised}, and it hasn't come through yet.${repeat}`;
+  }
+  if (ps.state === "pending" || ps.state === "due-today") {
+    return ` Thanks for letting me know you'll pay by ${ps.state === "due-today" ? "today" : promised}. The details are below to make it easy.`;
+  }
+  return "";
 }
 
 /**

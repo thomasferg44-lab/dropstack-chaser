@@ -9,7 +9,7 @@
 // committed file. A blocked call returns 200 with { sent: false, blocked: true }
 // so the UI can say plainly that nothing left the building.
 
-import { validateEmailRequest, textToHtml } from "../../src/lib/nudgeEmail.js";
+import { validateEmailRequest, textToHtml, formatFrom } from "../../src/lib/nudgeEmail.js";
 import { companyConfig } from "../../companyConfig.js";
 
 const json = (status, payload) =>
@@ -81,7 +81,7 @@ export default async function handler(req) {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
-        from: companyConfig.fromName ? `${companyConfig.fromName} <${from}>` : from,
+        from: formatFrom(companyConfig.fromName, from),
         to: [value.to],
         ...(companyConfig.replyToEmail ? { reply_to: companyConfig.replyToEmail } : {}),
         subject: value.subject,
