@@ -2,7 +2,8 @@
 -- Run in the Supabase SQL editor AFTER schema.sql. Every row must say PASS.
 --
 -- It switches role to `anon` and `authenticated` with `set role` and
--- attempts every operation on every chaser_ table. While switched, results
+-- attempts every operation on every chaser_ table (customers, invoices,
+-- nudges and, since 2026-11-05, promises). While switched, results
 -- are buffered in a plpgsql variable (anon can't write to the temp table)
 -- and inserted after `reset role`. It checks `current_user`,
 -- NOT auth.role(): auth.role() reads the JWT claim and is null in the SQL
@@ -45,6 +46,8 @@ begin
     returning id into inv_id;
   insert into chaser_nudges (invoice_id, channel, tone)
     values (inv_id, 'whatsapp', 'gentle');
+  insert into chaser_promises (invoice_id, promised_on, note)
+    values (inv_id, current_date, 'RLS test promise');
 
   foreach r in array array['anon', 'authenticated'] loop
     expect_ok := (r = 'authenticated');
@@ -60,13 +63,13 @@ begin
     -- select / insert / update on every table first, then deletes child-first.
     -- Deleting the customer earlier would cascade away the seeded invoice and
     -- nudge and make every later check on those tables fail for the wrong reason.
-    for step in 1..15 loop
-      if step <= 12 then
-        t  := (array['chaser_customers', 'chaser_invoices', 'chaser_nudges'])[((step - 1) / 4) + 1];
+    for step in 1..20 loop
+      if step <= 16 then
+        t  := (array['chaser_customers', 'chaser_invoices', 'chaser_nudges', 'chaser_promises'])[((step - 1) / 4) + 1];
         op := (array['select', 'insert', 'update', 'delete'])[((step - 1) % 4) + 1];
         continue when op = 'delete';
       else
-        t  := (array['chaser_nudges', 'chaser_invoices', 'chaser_customers'])[step - 12];
+        t  := (array['chaser_promises', 'chaser_nudges', 'chaser_invoices', 'chaser_customers'])[step - 16];
         op := 'delete';
       end if;
 
@@ -82,8 +85,10 @@ begin
             execute 'insert into chaser_customers (name) values (''rls-probe'')';
           elsif t = 'chaser_invoices' then
             execute format('insert into chaser_invoices (customer_id, amount_cents, issued_on, due_on) values (%L, 1, current_date, current_date)', cust_id);
-          else
+          elsif t = 'chaser_nudges' then
             execute format('insert into chaser_nudges (invoice_id, channel, tone) values (%L, ''email'', ''firm'')', inv_id);
+          else
+            execute format('insert into chaser_promises (invoice_id, promised_on) values (%L, current_date)', inv_id);
           end if;
           ok := true; detail := 'inserted';
         elsif op = 'update' then
@@ -91,13 +96,17 @@ begin
             execute format('update chaser_customers set name = name where id = %L', cust_id);
           elsif t = 'chaser_invoices' then
             execute format('update chaser_invoices set notes = ''probe'' where id = %L', inv_id);
-          else
+          elsif t = 'chaser_nudges' then
             execute format('update chaser_nudges set tone = tone where invoice_id = %L', inv_id);
+          else
+            execute format('update chaser_promises set note = note where invoice_id = %L', inv_id);
           end if;
           get diagnostics n = row_count;
           ok := (n > 0); detail := n || ' rows affected';
-        else -- delete, child-first: nudges → invoices → customers
-          if t = 'chaser_nudges' then
+        else -- delete, child-first: promises → nudges → invoices → customers
+          if t = 'chaser_promises' then
+            execute format('delete from chaser_promises where invoice_id = %L', inv_id);
+          elsif t = 'chaser_nudges' then
             execute format('delete from chaser_nudges where invoice_id = %L', inv_id);
           elsif t = 'chaser_invoices' then
             execute format('delete from chaser_invoices where id = %L', inv_id);
@@ -145,7 +154,7 @@ declare
   -- function is introduced, e.g. 'chaser_public_thing(uuid)'.
   anon_allow  text[] := array[]::text[];
   -- Functions authenticated MUST be able to execute (the app calls these).
-  auth_must   text[] := array['chaser_import_invoices(jsonb)'];
+  auth_must   text[] := array['chaser_import_invoices(jsonb)', 'chaser_load_demo(jsonb)', 'chaser_remove_demo()'];
 
   f           record;
   t           record;
