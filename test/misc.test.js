@@ -64,3 +64,10 @@ test("brand colour: readable ink and initials", () => {
   assert.equal(initials("Sample Service Co"), "SS");
   assert.equal(brandVars({ primaryColor: "nope" })["--brand-rgb"], "0 113 227");
 });
+
+test("checklist: seeded demo history doesn't count as the owner's first nudge", () => {
+  const seeded = { created_at: "2026-11-05T09:00:00Z", nudges: [{ sent_at: "2026-10-20T09:00:00Z" }], promises: [{ created_at: "2026-10-25T09:00:00Z" }], paid_by: "x@example.com", paid_at: "2026-10-30T09:00:00Z" };
+  assert.equal(checklistState({ configConfirmed: true, invoices: [seeded], dismissed: false }).done.action, false);
+  const mine = { ...seeded, nudges: [...seeded.nudges, { sent_at: "2026-11-05T09:05:00Z" }] };
+  assert.equal(checklistState({ configConfirmed: true, invoices: [mine], dismissed: false }).done.action, true);
+});

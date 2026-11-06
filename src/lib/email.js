@@ -8,7 +8,7 @@ const ENDPOINT = "/.netlify/functions/send-nudge";
  * Send one nudge email.
  * Resolves to { sent, blocked?, reason?, id? } or throws with a readable message.
  */
-export async function sendNudgeEmail({ to, subject, body, tone, invoiceId }) {
+export async function sendNudgeEmail({ to, subject, body, tone, invoiceId, stage }) {
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
   if (!token) throw new Error("Your session expired — sign in again.");
@@ -18,10 +18,10 @@ export async function sendNudgeEmail({ to, subject, body, tone, invoiceId }) {
     res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ to, subject, body, tone, invoiceId }),
+      body: JSON.stringify({ to, subject, body, tone, invoiceId, ...(stage ? { stage } : {}) }),
     });
   } catch {
-    throw new Error("Couldn't reach the send function. Is it running?");
+    throw new Error("Couldn't reach the email service. Check your connection, or send this one on WhatsApp.");
   }
 
   // `npm run dev` serves the app but not the functions, so a 404 here is the

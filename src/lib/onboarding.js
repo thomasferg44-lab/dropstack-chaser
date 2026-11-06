@@ -13,8 +13,15 @@ export function checklistState({ configConfirmed, invoices, dismissed }) {
   const done = {
     config: Boolean(configConfirmed),
     data: list.length > 0,
-    // the core action: a nudge sent, a promise logged or a payment recorded
-    action: list.some((i) => (i.nudges || []).length > 0 || (i.promises || []).length > 0 || Boolean(i.paid_by)),
+    // The core action, done by the owner in this tool: a nudge sent, a promise
+    // logged or a payment recorded. Demo rows arrive with backdated history,
+    // which is the seed's, not the owner's, so only actions at or after the
+    // invoice landed here count.
+    action: list.some((i) => {
+      const since = Date.parse(i.created_at ?? "") - 60000 || -Infinity;
+      const mine = (ts) => !ts || Date.parse(ts) >= since;
+      return (i.nudges || []).some((n) => mine(n.sent_at)) || (i.promises || []).some((p) => mine(p.created_at)) || (Boolean(i.paid_by) && mine(i.paid_at));
+    }),
   };
   const complete = STEPS.every((s) => done[s.key]);
   return {

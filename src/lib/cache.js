@@ -52,8 +52,12 @@ export async function flushOutbox(userId, send) {
   return { sent, left: left.length };
 }
 
-/** Sign-out: remove every cached customer detail, draft and queued write. */
-export function wipeDevice() { for (const k of store.keys()) store.del(k); }
+/**
+ * Sign-out: remove every cached customer detail, draft and queued write.
+ * Small preferences (checklist dismissed, details confirmed) hold no customer
+ * data and are kept, so the next sign-in doesn't nag again.
+ */
+export function wipeDevice() { for (const k of store.keys()) if (!k.startsWith("pref:")) store.del(k); }
 
 // ---- small per-device preferences (onboarding) --------------------------------
 export const prefs = {

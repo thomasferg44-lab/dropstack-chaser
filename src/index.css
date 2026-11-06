@@ -1,61 +1,238 @@
 @import "tailwindcss";
 
-/* DropStack design tokens — identical across all four package tools. */
+/* DropStack tools v2: the outreach console's design system, copied exactly
+   (dropstack-tools-DESIGN.md §1). Light-first: #f5f5f7 ground, white cards,
+   one dark glass chrome. Invoice Chaser's aura leans blue/teal and is kept to
+   the header band, hero stat blocks and empty states, never behind data. */
 @theme {
-  --color-bg: #0b0f1a;
-  --color-surface: #151d31;
-  --color-border: #243250;
-  --color-text: #ffffff;
-  --color-mute: #8b95a8;
-  --color-dim: #5b6b8c;
-  --color-accent-1: #00d4ff;
-  --color-accent-2: #7b5cff;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI",
+    system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
-  --color-status-current: #3fb6ff;
-  --color-status-due: #f5b544;
-  --color-status-late: #f5844a;
-  --color-status-critical: #e5484d;
-  --color-status-paid: #4ade80;
+  --color-canvas: #f5f5f7;
+  --color-ink: #1d1d1f;
+  --color-ink-2: #48484a;
+  --color-ink-3: #6e6e73;
+  --color-ink-4: #aeaeb2;
+  --color-hairline: rgb(0 0 0 / 0.08);
+  --color-fill: #f2f2f4;
+  --color-fill-2: #e8e8ed;
+  --color-chrome: #1c1c1e;
+  --color-field: #d2d2d7;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-good: #1a7a37;
+  --color-good-soft: #e6f6ea;
+  --color-warn: #a35200;
+  --color-warn-soft: #fff4e0;
+  --color-bad: #c7001a;
+  --color-bad-soft: #ffeaec;
+  --color-info: #0062cc;
+  --color-info-soft: #e7f1ff;
+  --color-error: #b42318;
+
+  --color-action: #0066cc;
+  --color-action-fill: #0071e3;
+  --color-brand: rgb(var(--brand-rgb, 0 113 227));
+  --color-brand-ink: var(--brand-ink, #ffffff);
+
+  --radius-card: 18px;
+  --radius-input: 12px;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.05), 0 18px 40px -16px rgb(0 0 0 / 0.22);
+  --shadow-ring: 0 0 0 4px rgb(0 113 227 / 0.16);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-pulse-dot: pulse-dot 2s var(--ease-out-soft) infinite;
+  --animate-rise: rise 220ms var(--ease-out-soft) both;
+  --animate-sheet-up: sheet-up 240ms var(--ease-out-soft) both;
+  --animate-sheet-left: sheet-left 240ms var(--ease-out-soft) both;
+  --animate-fade: fade 180ms ease-out both;
+  --animate-flash: flash 900ms ease-out;
+
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to { background-position: 400px 0; }
+  }
+  @keyframes pulse-dot {
+    0% { box-shadow: 0 0 0 0 rgb(52 199 89 / 0.55); }
+    70% { box-shadow: 0 0 0 7px rgb(52 199 89 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(52 199 89 / 0); }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+  @keyframes sheet-left {
+    from { transform: translateX(100%); }
+    to { transform: none; }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes flash {
+    0% { background-color: rgb(0 113 227 / 0.08); }
+    100% { background-color: transparent; }
+  }
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-bg text-text font-sans antialiased;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
   }
-  input, select, textarea {
-    @apply bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-dim w-full outline-none focus:border-accent-1;
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
   }
-  input[type="checkbox"] {
-    @apply w-4 h-4 accent-accent-1;
+  :focus-visible {
+    outline: 2px solid #0071e3;
+    outline-offset: 2px;
+    border-radius: 8px;
   }
-  label {
-    @apply text-xs text-mute font-medium;
+  .grid > * {
+    min-width: 0;
+  }
+  ::selection {
+    background: rgb(0 113 227 / 0.18);
   }
 }
 
 @layer components {
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed;
+  /* Invoice Chaser aura: blue to teal. Restrained. */
+  .aura-wash {
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, rgb(10 132 255 / 0.11), transparent 55%),
+      radial-gradient(90% 80% at 0% 100%, rgb(48 176 199 / 0.1), transparent 60%),
+      radial-gradient(70% 60% at 85% 100%, rgb(52 170 220 / 0.07), transparent 60%);
   }
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed text-bg;
-    background: linear-gradient(90deg, #00d4ff, #7b5cff);
+  .aura-pill {
+    background-image: linear-gradient(120deg, rgb(10 132 255 / 0.36), rgb(48 176 199 / 0.3));
   }
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-surface border border-border text-text hover:border-accent-1;
+  .aura-ring {
+    background-image: conic-gradient(from 210deg, #0a84ff, #30b0c7, #64d2ff, #0a84ff);
   }
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed text-mute hover:text-text;
+  .glass-chrome {
+    background: rgb(28 28 30 / 0.94);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
   }
-  .card {
-    @apply bg-surface border border-border rounded-xl p-4;
+  .glass-light {
+    background: rgb(245 245 247 / 0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
-  .field {
-    @apply flex flex-col gap-1;
+  .glass-white {
+    background: rgb(255 255 255 / 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #ececf0 0px, #f6f6f8 120px, #ececf0 240px);
+    background-size: 800px 100%;
+    animation: var(--animate-shimmer);
+    border-radius: 10px;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card { @apply bg-white rounded-card shadow-card; }
+  .group-list { @apply bg-white rounded-card shadow-card overflow-hidden; }
+  .group-row { @apply flex items-center gap-3 px-4 min-h-[60px] py-3; }
+  .group-list > * + * { border-top: 1px solid var(--color-hairline); }
+  .section-label { @apply text-[13px] font-medium text-ink-3 px-1 mb-2; }
+
+  .field-label { @apply block text-[13px] font-semibold text-ink mb-1.5; }
+  .field-help { @apply mt-1.5 text-[13px] text-ink-3; }
+  .field-error { @apply mt-1.5 text-[13px] text-error flex items-start gap-1.5; }
+  .input {
+    @apply block w-full rounded-input border border-field bg-white px-3.5 py-3 text-base text-ink placeholder:text-ink-4
+           min-h-[48px] outline-none;
+    transition: border-color 200ms var(--ease-out-soft), box-shadow 200ms var(--ease-out-soft);
+  }
+  .input:focus { border-color: #0071e3; box-shadow: var(--shadow-ring); }
+  .input[aria-invalid="true"] { border-color: var(--color-error); }
+  .input-money { @apply text-right tabular; }
+  textarea.input { @apply leading-relaxed; }
+  .search {
+    @apply block w-full rounded-input bg-fill-2 pl-10 pr-3.5 text-base text-ink placeholder:text-ink-3 min-h-[44px] outline-none;
+  }
+  .search:focus { box-shadow: var(--shadow-ring); }
+
+  .btn-primary { @apply btn bg-brand text-brand-ink py-3.5; }
+  .btn-secondary { @apply btn bg-fill text-ink; }
+  .btn-secondary:hover:not(:disabled) { @apply bg-fill-2; }
+  .btn-plain { @apply btn bg-transparent text-action px-3; }
+  .btn-plain:hover:not(:disabled) { @apply bg-fill; }
+  .btn-danger { @apply btn bg-bad-soft text-bad; }
+
+  .pill-good { @apply pill bg-good-soft text-good; }
+  .pill-warn { @apply pill bg-warn-soft text-warn; }
+  .pill-bad { @apply pill bg-bad-soft text-bad; }
+  .pill-info { @apply pill bg-info-soft text-info; }
+  .pill-neutral { @apply pill bg-fill-2 text-ink-2; }
+
+  .stat-figure { @apply text-[28px] sm:text-[34px] font-semibold tracking-tight tabular leading-none; }
+}
+
+/* Utilities other classes build on (Tailwind v4 only lets @apply reach
+   @utility classes, not component classes). */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-input);
+  font-weight: 600;
+  min-height: 44px;
+  padding-inline: 1rem;
+  font-size: 15px;
+  user-select: none;
+  transition: transform 200ms var(--ease-out-soft), opacity 200ms var(--ease-out-soft), background-color 200ms var(--ease-out-soft);
+  &:active:not(:disabled) { transform: scale(0.98); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+@utility pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding-inline: 0.625rem;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
