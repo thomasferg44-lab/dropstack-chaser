@@ -4,6 +4,33 @@ Shows a service business exactly how much it is owed, by whom, and for how long 
 
 Part of the DropStack service-business package: Mini-site, Lead Capture, Review Engine, Invoice Chaser. Sold together as one offer — build fee plus monthly. Each tool is its own repo and its own deploy.
 
+## November 2026 compete pass: what's new and how to set it up
+
+**Apply the database patch before deploying this frontend.** Paste `supabase/patches/2026-11-05-compete-upgrades.sql` into the Supabase SQL editor (it's one transaction and safe to run twice), then run `supabase/verify-rls.sql` and `supabase/verify-compete-upgrades.sql`: every row must read PASS. A fresh project only needs `schema.sql`, which already includes the patch. If the frontend ships first, it still works on the old database: payments, nudges and imports carry on, and promise-to-pay, demo mode and the Quote pull say they need the update.
+
+New in `companyConfig.js`:
+
+- `paymentInstructions` (bank details) and `paymentLink` (https only, `""` hides it). Every nudge in both channels ends with how to pay, the invoice reference and the link. The old `paymentDetails` field is still read.
+- `ladder`: stages keyed to days overdue (default friendly +1, firm +7, final +14) and `minDaysBetweenNudges` (3). The rules are written next to the setting.
+- `quotePull`: `enabled` and `paymentTermsDays` (due date of a pulled quote = acceptance or invoice date + terms).
+- `demo`: `allowed` and the `industries` offered (plumber, landscaper, electrician). Set `allowed: false` once a client's real data is in.
+- `primaryColor` (primary buttons; falls back to dark text if white wouldn't be readable) and `logoUrl` (`""` shows an initials monogram).
+
+What the owner sees:
+
+- **Today** is the home screen: what you're owed, what's overdue, how many to chase today, the 1–30 / 31–60 / 61–90 / 90+ split, and the today queue (broken promises first, then the biggest balance). One tap opens the nudge, already written.
+- **The composer** writes each nudge from the invoice: the ladder stage's tone, the job, the outstanding balance, any part-payment and any promise the customer made and broke, plus how to pay. It checks the pay block is still there before sending. Edits are saved on the phone until sent. There is no AI call anywhere; `composeNudge()` in `src/lib/compose.js` has an unused `refine()` seam where a generative drafter could plug in later.
+- **Promise to pay**: log the date the customer gave. The ladder pauses until it passes; if it passes unpaid, the invoice is flagged as a broken promise at the top of Today.
+- **Auto-stop**: once an invoice is paid it leaves the ladder and every queue. On the patched database the trigger records `paid_at`, and `paid_by` holds the login that marked it paid.
+- **Pull from Quote & Invoice** (Import tab): accepted, unpaid, past-due quotes from the `quotes` table in the same Supabase project come in with one tap. The customer is matched on mobile number, then email. The quote id is stored on the invoice and is unique, so pulling again never duplicates. Chaser only reads `quotes`; marking paid here does not update Quote & Invoice.
+- **Demo mode** (Setup, or the empty Today screen): one tap loads twelve invoices for a plumber, landscaper or electrician, covering every stage, one broken promise and one paid invoice. All rows are marked `is_demo`, references start `DEMO-`, a DEMO badge shows while they exist, and Remove demo data deletes exactly those rows. Demo phone numbers are `+27 00 000 00xx` and emails are `@example.com`. Emails on demo invoices are shown and logged, never sent.
+- **First-run checklist**: check details → demo or first invoice → first nudge. It's shown until complete and can be hidden after.
+- **Offline**: the last good copy of the books is kept on the phone, so Today still renders on a dropped connection. A nudge or promise logged while offline is queued and synced later. Signing out clears all of it from the device.
+
+**Health check**: `GET /api/health` (`netlify/functions/health.mjs`) returns `ok`, `healthy`, `database` and booleans for config and server pieces (payment details set, real sender email, Resend key present, real sends enabled). It never returns a key, URL, address or name. The probe asks PostgREST for zero rows of `chaser_invoices` with the anon key, so it reads and writes nothing. The status line at the bottom of the sidebar (phones: under the content) shows it. Plain `npm run dev` has no functions, so the line reads "Status check unavailable" there; use `npx netlify dev`. Nothing schedules calls to it.
+
+**Testing locally without a database**: `VITE_MOCK_BACKEND=1 npx vite build` builds against an in-memory test backend (`src/dev/mockBackend.js`; a normal build drops it). `tools/gates/` holds the browser gate scripts and `supabase/local-test/` the SQL harness; see the READMEs there and `REPORT.md`.
+
 ## Stack
 
 React + Vite, Tailwind CSS, Supabase (Postgres + Auth), Resend via Netlify Functions, Netlify.
@@ -66,7 +93,7 @@ Templates live in `companyConfig.js`, one per tone per channel. Placeholders: `{
 
 A placeholder that resolves to nothing, such as a blank `paymentDetails`, leaves no stray blank line. An unknown placeholder is left visible in the preview so a typo in a client's template is obvious rather than silently blank.
 
-Every send records a `chaser_nudges` row. The message text itself is never stored, only the tone, the channel and the time.
+Every send records a `chaser_nudges` row. The message text itself is never stored, only the tone, the ladder stage, the channel and the time.
 
 The sheet lists previous nudges for that invoice, and the dashboard row shows "nudged 2× · last 5 days ago". If the invoice was nudged within the last three days the sheet opens with a warning naming the customer, the tone used and when. It is a warning, not a block: the send button stays enabled, because the owner knows their customer and this tool does not. Chasing someone every day costs the client a relationship worth more than the invoice.
 

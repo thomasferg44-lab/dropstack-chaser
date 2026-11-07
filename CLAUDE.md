@@ -42,29 +42,9 @@ During development this tool shares a Supabase project (`dropstack-dev`) with tw
 
 If the client ever sees a total that doesn't match their own arithmetic, they stop using the tool that day.
 
-## Design tokens — shared across all four DropStack tools
+## Design tokens — shared across all DropStack tools
 
-This tool is almost entirely owner-facing, so it is **DropStack-branded** throughout. Fixed tokens:
-```
---bg:        #0B0F1A
---surface:   #151D31
---border:    #243250
---text:      #FFFFFF
---text-mute: #8B95A8
---text-dim:  #5B6B8C
---accent-1:  #00D4FF
---accent-2:  #7B5CFF
-/* gradient: linear-gradient(90deg, #00D4FF, #7B5CFF) */
-```
-Status colors (use consistently, and make them legible on the dark surface):
-```
-current:  #3FB6FF   /* not yet due */
-due:      #F5B544   /* 1–30 days overdue */
-late:     #F5844A   /* 31–60 */
-critical: #E5484D   /* 60+ */
-paid:     #4ADE80
-```
-Identical dashboard tokens across all four package tools. Gradient for primary actions only.
+**Superseded Nov 2026.** The dark navy / cyan-to-violet palette that used to be here is retired and must not come back. The tools now use the outreach console's light design system, as specified in `~/dropstack-four-tools/dropstack-tools-DESIGN.md` §1: `#f5f5f7` canvas, white 18px-radius cards, `#1c1c1e` glass chrome, semantic pill pairs (good `#1a7a37`/`#e6f6ea`, warn `#a35200`/`#fff4e0`, bad `#c7001a`/`#ffeaec`, info `#0062cc`/`#e7f1ff`), action blue `#0071e3`. Invoice Chaser's aura leans blue/teal, kept to the header band, hero and empty states. The tokens live in `src/index.css`. Zero emojis.
 
 ## Data model
 

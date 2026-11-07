@@ -4,10 +4,10 @@ import { outstandingCents, sumCents } from "./money.js";
 import { daysOverdue, todayISO } from "./dates.js";
 
 export const BUCKETS = [
-  { key: "current", label: "Current", hint: "not yet due", color: "status-current" },
-  { key: "due", label: "1–30 days", hint: "overdue", color: "status-due" },
-  { key: "late", label: "31–60 days", hint: "overdue", color: "status-late" },
-  { key: "critical", label: "60+ days", hint: "overdue", color: "status-critical" },
+  { key: "current", label: "Current", hint: "not yet due" },
+  { key: "due", label: "1–30 days", hint: "overdue" },
+  { key: "late", label: "31–60 days", hint: "overdue" },
+  { key: "critical", label: "60+ days", hint: "overdue" },
 ];
 
 /** Bucket key for a number of days overdue (≤ 0 = not yet due). */
