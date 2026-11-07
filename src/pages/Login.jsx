@@ -28,8 +28,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen aura-wash flex items-center justify-center p-4">
-      <form onSubmit={onSubmit} className="w-full max-w-sm card p-6 sm:p-8 space-y-5 animate-rise">
+    <main className="min-h-screen aura-wash flex items-center justify-center p-4">
+      <form onSubmit={onSubmit} className="w-full max-w-sm card p-6 sm:p-8 space-y-5">
         <div className="text-center space-y-3">
           <BrandMark size={56} className="mx-auto rounded-[16px]" />
           <div>
@@ -42,6 +42,6 @@ export default function Login() {
         {error && <p className="field-error" role="alert"><Icon name="alert" size={15} className="mt-[1px]" />{error}</p>}
         <button type="submit" disabled={busy} className="btn-primary w-full text-[17px]">{busy ? "Signing in…" : "Sign in"}</button>
       </form>
-    </div>
+    </main>
   );
 }

@@ -51,7 +51,7 @@ export default function InvoiceDetailPage({ id, schema }) {
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 animate-rise" data-testid="detail-summary">
+      <section className="card p-5" data-testid="detail-summary">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[13px] text-ink-3">{open ? "Outstanding" : inv.status === "paid" ? "Paid in full" : "Written off"}</div>

@@ -17,8 +17,8 @@ const store = {
 const readJson = (k, fallback) => { try { const v = store.get(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
 
 // ---- invoice snapshot ----------------------------------------------------------
-export function saveSnapshot(userId, invoices, at = new Date().toISOString()) {
-  return store.set(`snap:${userId}`, JSON.stringify({ at, invoices }));
+export function saveSnapshot(userId, invoices, at = new Date().toISOString(), schema = null) {
+  return store.set(`snap:${userId}`, JSON.stringify({ at, invoices, schema }));
 }
 export function loadSnapshot(userId) { return readJson(`snap:${userId}`, null); }
 

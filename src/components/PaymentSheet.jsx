@@ -56,7 +56,7 @@ export default function PaymentSheet({ invoice, onClose }) {
           <Figure label="Outstanding" value={money(outstandingCents(invoice))} strong />
         </div>
         <div className="flex items-end gap-2">
-          <NumberField className="flex-1" id="payment-amount" label="Amount received now" prefix="R" value={amount} data-autofocus
+          <NumberField className="flex-1" label="Amount received now" prefix="R" value={amount} data-autofocus
             onChange={(e) => setAmount(e.target.value)} onBlur={() => setTouched(true)} placeholder="0,00"
             error={showErr ? plan.errors[0] : null} help={!showErr ? "Added to what was paid before." : null} />
           <button type="button" className="btn-secondary mb-[26px]" onClick={() => { setAmount(fullPaymentInput(invoice)); setTouched(true); }}>Paid in full</button>

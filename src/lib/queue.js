@@ -25,7 +25,11 @@ export function annotate(invoices, { ladder, today }) {
  */
 export function buildTodayQueue(annotated) {
   return annotated
-    .filter((i) => isOpen(i) && i.ladder.open && !i.ladder.complete && i.ladder.dueNow)
+    .filter((i) => isOpen(i) && i.ladder.open && (
+      (!i.ladder.complete && i.ladder.dueNow) ||
+      // A broken promise always comes back to the top, even when the ladder
+      // has run out, until the owner has followed it up after the date passed.
+      (i.ladder.complete && i.promise.state === "broken" && (!i.ladder.lastNudgeOn || i.ladder.lastNudgeOn <= i.promise.promise.promised_on))))
     .sort((a, b) =>
       (b.promise.state === "broken") - (a.promise.state === "broken") ||
       b.owedCents - a.owedCents ||

@@ -50,3 +50,12 @@ test("queue reason reads plainly", () => {
   const [f] = Q([inv("f", "2026-11-04", 100)]);
   assert.equal(queueReason(f, TODAY), "Friendly nudge due today");
 });
+
+test("a broken promise on a finished ladder still heads the queue until it's followed up", () => {
+  const sent = ["gentle", "firm", "final"].map((tone, i) => ({ tone, sent_at: at(`2026-10-0${2 + i * 3}`) }));
+  const p = [{ promised_on: "2026-11-02", created_at: at("2026-10-20") }];
+  const list = [inv("big", "2026-10-20", 900000), inv("done", "2026-09-20", 100, { nudges: sent, promises: p })];
+  assert.deepEqual(Q(list).map((i) => i.id), ["done", "big"]);
+  const followed = [list[0], { ...list[1], nudges: [...sent, { tone: "final", sent_at: at("2026-11-04") }] }];
+  assert.deepEqual(Q(followed).map((i) => i.id), ["big"]);
+});

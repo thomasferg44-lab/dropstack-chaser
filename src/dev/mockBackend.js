@@ -238,6 +238,8 @@ class Query {
           // chaser_inherit_demo(): a nudge/promise on a demo invoice is demo too
           row.is_demo = Boolean(row.is_demo) || Boolean(state.chaser_invoices.find((i) => i.id === row.invoice_id)?.is_demo);
         }
+        // Only the columns this schema level has (legacy: no v2 defaults).
+        for (const k of Object.keys(row)) if (!cols.includes(k)) delete row[k];
         const bad = checkRow(this.table, row, state);
         if (bad) return err("23514", bad);
         result.push(row);

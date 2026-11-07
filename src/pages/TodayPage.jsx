@@ -53,7 +53,7 @@ export default function TodayPage({ schema }) {
           action={canDemo && schema === "v2"
             ? <button className="btn-primary w-full sm:w-auto" onClick={() => setSheet("demo")} data-testid="empty-load-demo">Load demo data</button>
             : <button className="btn-primary w-full sm:w-auto" onClick={() => setSheet("invoice")}>Add your first invoice</button>}
-          secondary={<span className="text-[14px] text-ink-3">or <a className="text-action" {...linkProps("/import")}>import a spreadsheet</a>{canDemo && schema === "v2" && <> · <button className="text-action min-h-[44px]" onClick={() => setSheet("invoice")}>add one by hand</button></>}</span>}>
+          secondary={<span className="text-[14px] text-ink-3">or <a className="text-action inline-flex items-center min-h-[44px]" {...linkProps("/import")}>import a spreadsheet</a>{canDemo && schema === "v2" && <> · <button className="text-action min-h-[44px]" onClick={() => setSheet("invoice")}>add one by hand</button></>}</span>}>
           See exactly who owes you and nudge them in one tap. Start with sample books, or add what you're owed.
         </EmptyState>
       ) : (
@@ -85,7 +85,7 @@ export default function TodayPage({ schema }) {
                 {queue.map((item) => (
                   <InvoiceRow key={item.id} inv={item} testId="queue-row" onClick={() => setComposing(item)}
                     sub={queueReason(item, today)}
-                    right={item.promise.state === "broken" ? <PromisePill ps={item.promise} /> : <span className={item.ladder.nextStage.tone === "final" ? "pill-bad" : item.ladder.nextStage.tone === "firm" ? "pill-warn" : "pill-info"}>{item.ladder.nextStage.label}</span>} />
+                    right={item.promise.state === "broken" || !item.ladder.nextStage ? <PromisePill ps={item.promise} /> : <span className={item.ladder.nextStage.tone === "final" ? "pill-bad" : item.ladder.nextStage.tone === "firm" ? "pill-warn" : "pill-info"}>{item.ladder.nextStage.label}</span>} />
                 ))}
               </div>
             )}
@@ -121,7 +121,7 @@ function Hero({ aged, queueCount, done }) {
   const total = useCountUp(aged.outstanding);
   const shares = bucketShares(aged.buckets);
   return (
-    <section className="card aura-wash p-5 sm:p-6 animate-rise" aria-label="Summary" data-testid="hero">
+    <section className="card aura-wash p-5 sm:p-6" aria-label="Summary" data-testid="hero">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-4">
         <div className="col-span-2 sm:col-span-1">
           <div className="text-[13px] text-ink-3">You are owed</div>

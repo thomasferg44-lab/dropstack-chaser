@@ -22,7 +22,7 @@ export default function Sheet({ open = true, onClose, title, children, footer, l
   useEffect(() => { if (open) setDy(0); }, [open]);
   if (!open) return null;
 
-  const onDown = (e) => { if (e.target.closest("button")) return; start.current = e.clientY; setDragging(true); e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const onDown = (e) => { if (e.target.closest("button")) return; start.current = e.clientY; setDragging(true); try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* synthetic or already-released pointer */ } };
   const onMove = (e) => { if (start.current != null) setDy(Math.max(0, e.clientY - start.current)); };
   const onUp = () => {
     setDragging(false);

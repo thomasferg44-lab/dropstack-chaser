@@ -24,6 +24,7 @@ export function DataProvider({ user, children }) {
   const [lastSync, setLastSync] = useState(snap.current?.at ?? null);
   const [error, setError] = useState(null);
   const [pending, setPending] = useState(outbox(uid).length);
+  const pendingRef = useRef(false); // a replay happened: refetch so the list includes it
 
   const replay = useCallback(async () => {
     if (!outbox(uid).length) return;
@@ -37,14 +38,26 @@ export function DataProvider({ user, children }) {
       }
     });
     setPending(r.left);
+    if (r.sent) pendingRef.current = true;
   }, [uid]);
 
   const refresh = useCallback(async () => {
     try {
-      const level = await db.detectSchema();
+      // One round trip, not two: with a schema level remembered on this
+      // device, the probe runs alongside the data fetch (refetched only if
+      // the database was upgraded in between).
+      // First visit assumes the patched schema; an unpatched database costs
+      // one extra fetch, never a wrong answer.
+      const hint = !db.getSchemaLevel() ? (snap.current?.schema ?? "v2") : null;
+      if (hint) db.assumeSchema(hint);
+      let [level, inv, cust] = await Promise.all([hint ? db.probeSchema() : db.detectSchema(), db.listInvoices().catch((e) => e), db.listCustomers()]);
+      if (inv instanceof Error) {
+        if (!hint || level === hint) throw inv;
+        inv = await db.listInvoices();
+      } else if (hint && level !== hint) inv = await db.listInvoices();
       setSchema(level);
       await replay();
-      const [inv, cust] = await Promise.all([db.listInvoices(), db.listCustomers()]);
+      if (outbox(uid).length === 0 && pendingRef.current) { inv = await db.listInvoices(); pendingRef.current = false; }
       setInvoices(inv);
       setCustomers(cust);
       setStatus("ready");
@@ -52,7 +65,7 @@ export function DataProvider({ user, children }) {
       setError(null);
       const at = new Date().toISOString();
       setLastSync(at);
-      saveSnapshot(uid, inv, at);
+      saveSnapshot(uid, inv, at, level);
     } catch (e) {
       if (isNetworkError(e)) {
         setOffline(true);
@@ -65,6 +78,9 @@ export function DataProvider({ user, children }) {
   }, [uid, replay]);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // Keep the device snapshot in step with every local change (a nudge or
+  // promise logged offline must still be there after a reload).
+  useEffect(() => { if (invoices && status === "ready") saveSnapshot(uid, invoices, lastSync ?? new Date().toISOString(), schema); }, [invoices, status, uid, lastSync, schema]);
   useEffect(() => {
     const back = () => refresh();
     const vis = () => { if (document.visibilityState === "visible") refresh(); };

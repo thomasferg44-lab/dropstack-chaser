@@ -16,15 +16,21 @@ export const NEEDS_PATCH = "needs-patch";
 const isMissing = (e) => ["PGRST204", "PGRST205", "PGRST200", "PGRST202", "42703", "42P01"].includes(e?.code);
 
 let schemaLevel = null;
-export async function detectSchema() {
-  if (schemaLevel) return schemaLevel;
+async function queryLevel() {
   const { error } = await supabase.from("chaser_promises").select("id").limit(0);
-  if (!error) schemaLevel = "v2";
-  else if (isMissing(error)) schemaLevel = "v1";
-  else throw Object.assign(new Error(error.message), { code: error.code });
+  if (!error) return "v2";
+  if (isMissing(error)) return "v1";
+  throw Object.assign(new Error(error.message), { code: error.code });
+}
+export async function detectSchema() {
+  if (!schemaLevel) schemaLevel = await queryLevel();
   return schemaLevel;
 }
 export const getSchemaLevel = () => schemaLevel;
+/** Use the level remembered on this device so the first fetch needn't wait for the probe. */
+export function assumeSchema(level) { if (!schemaLevel && (level === "v1" || level === "v2")) schemaLevel = level; }
+/** Probe again regardless of what's cached (runs alongside the data fetch). */
+export async function probeSchema() { schemaLevel = await queryLevel(); return schemaLevel; }
 export function resetSchemaLevel() { schemaLevel = null; }
 function requireV2(what) {
   if (schemaLevel !== "v2") throw Object.assign(new Error(`${what} needs the November database update (supabase/patches/2026-11-05-compete-upgrades.sql).`), { code: NEEDS_PATCH });
